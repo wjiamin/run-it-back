@@ -172,6 +172,11 @@ ol.steps li{margin:2px 0}
 .cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px}
 .cgrp .chips{margin-top:0}
 .chip.conn{border-style:dashed;border-color:var(--accent)}
+/* debug log panel */
+.dbgPanel{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;padding:12px}
+.dbgBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(760px,100%);max-height:100%;margin:auto;display:flex;flex-direction:column;gap:10px}
+.dbgBox h2{margin:0;font-size:16px}
+.dbgBox textarea{flex:1;min-height:220px;height:55vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px;resize:none;white-space:pre}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -181,7 +186,17 @@ ol.steps li{margin:2px 0}
   <header class="top">
     <button id="backBtn" class="ghost" hidden aria-label="Back to my covers">←</button>
     <h1 id="heading">Run It Back</h1>
+    <button id="dbgBtn" class="ghost" aria-label="Open the debug log" title="Debug log" style="font-size:13px">Log</button>
   </header>
+
+  <div id="dbgPanel" class="dbgPanel" hidden role="dialog" aria-modal="true" aria-label="Debug log">
+    <div class="dbgBox">
+      <div class="row between"><h2>Debug log</h2><button id="dbgClose" class="ghost" aria-label="Close">✕</button></div>
+      <p class="muted small" style="margin:0">Kept on this device only, until you copy it. It never includes video links or titles. If something goes wrong, press Copy and paste it into the chat.</p>
+      <textarea id="dbgText" readonly aria-label="Debug information"></textarea>
+      <div class="row"><button id="dbgCopy" class="btn primary">Copy debug info</button><button id="dbgClear" class="btn">Clear log</button><span id="dbgMsg" class="small muted" role="status"></span></div>
+    </div>
+  </div>
 
   <!-- HOME -->
   <section id="viewHome">
@@ -391,6 +406,53 @@ ol.steps li{margin:2px 0}
 'use strict';
 const $ = s => document.querySelector(s);
 const LS = 'coverLearner.v1';
+const APP_VERSION = '2026-09-20-c';
+
+/* ---------- debug log: kept on this device, copyable, never includes video links or titles ---------- */
+const LOGK = 'runItBack.log.v1', LOG_MAX = 250;
+let logs = [], logSaveTimer = 0;
+try { logs = JSON.parse(localStorage.getItem(LOGK)) || []; if (!Array.isArray(logs)) logs = []; } catch { logs = []; }
+function dlog(kind, msg){
+  const d = new Date();
+  logs.push({t: d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0'), k: kind, m: String(msg).slice(0, 300)});
+  if (logs.length > LOG_MAX) logs.splice(0, logs.length - LOG_MAX);
+  clearTimeout(logSaveTimer);
+  logSaveTimer = setTimeout(() => { try { localStorage.setItem(LOGK, JSON.stringify(logs)); } catch {} }, 400);
+  if (!$('#dbgPanel').hidden) renderDebug();
+}
+window.addEventListener('error', e => dlog('error', (e.message || 'error') + ' @' + String(e.filename || '').split('/').pop() + ':' + e.lineno));
+window.addEventListener('unhandledrejection', e => dlog('error', 'promise: ' + ((e.reason && e.reason.message) || e.reason)));
+function debugReport(){
+  const nav = navigator, L = [];
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || nav.standalone;
+  L.push('Run It Back debug report', 'version: ' + APP_VERSION, 'time: ' + new Date().toString(), 'browser: ' + nav.userAgent,
+    'screen: ' + screen.width + 'x' + screen.height + ' @' + (window.devicePixelRatio || 1) + 'x, window ' + innerWidth + 'x' + innerHeight + ' (' + (innerWidth > innerHeight ? 'landscape' : 'portrait') +
+    '), touch ' + (('ontouchstart' in window) || nav.maxTouchPoints > 0 ? 'yes' : 'no') + ', home-screen app ' + (standalone ? 'yes' : 'no'));
+  L.push('', '--- state');
+  const inPlayer = !$('#viewPlayer').hidden;
+  L.push('screen: ' + (inPlayer ? 'player, ' + tab + ' tab' : 'home'));
+  if (cur && inPlayer){
+    L.push('beat: ' + (hasGrid() ? (60/cur.period).toFixed(1) + ' BPM' : 'not set') + (lastFit ? ', tap steadiness ' + Math.round(lastFit.rms*1000) + ' ms' : ''));
+    L.push('video: length ' + (duration || '?') + ' s, ' + (ready ? (playing ? 'playing' : 'not playing') : 'player not ready') + ', speed ' + rate + 'x, sound ' + (soundOff ? 'off' : 'on') +
+      ', ad ' + (adDetected ? 'playing' : adManual ? 'unlocked by hand' : 'no'));
+    L.push('full screen: ' + (fsOn ? (fsPseudo ? 'on (fallback layout)' : 'on (browser)') : 'off'));
+    if (hasRange()) L.push('range: ' + fmtd(cur.rangeStart) + ' to ' + fmtd(cur.rangeEnd) + ', ' + (tToK(cur.rangeEnd) - tToK(cur.rangeStart)) + ' counts, ' + blocks().length + ' blocks');
+    L.push('practice: ' + (sess ? (sess.done ? 'complete' : 'step ' + (sess.i + 1) + ' of ' + sess.plan.length + ', rep ' + (sess.rep + 1) + (sess.waiting ? ', waiting for you' : '') + (sess.resting ? ', pausing' : '')) : 'not running'));
+  }
+  L.push('settings: ' + JSON.stringify(db.settings));
+  L.push('', '--- log (oldest first, ' + logs.length + ' entries)');
+  for (const e of logs) L.push(e.t + '  ' + e.k.padEnd(9) + ' ' + e.m);
+  return L.join('\n');
+}
+function renderDebug(){ const ta = $('#dbgText'); ta.value = debugReport(); ta.scrollTop = ta.scrollHeight; }
+function openDebug(){ $('#dbgPanel').hidden = false; $('#dbgMsg').textContent = ''; renderDebug(); $('#dbgClose').focus(); }
+function closeDebug(){ $('#dbgPanel').hidden = true; $('#dbgBtn').focus(); }
+async function copyDebug(){
+  const txt = debugReport(), ta = $('#dbgText'), msg = $('#dbgMsg');
+  try { await navigator.clipboard.writeText(txt); msg.textContent = 'Copied. Paste it into the chat.'; return; } catch {}
+  try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); msg.textContent = document.execCommand('copy') ? 'Copied. Paste it into the chat.' : 'Select all the text and copy it by hand.'; }
+  catch { msg.textContent = 'Select all the text and copy it by hand.'; }
+}
 
 /* ---------- storage ---------- */
 const DEF_BLOCK = () => [{rate:0.5,on:true,reps:3},{rate:0.75,on:true,reps:3},{rate:1,on:true,reps:3}];
@@ -420,7 +482,7 @@ function loadDb(){
   return fresh();
 }
 let db = loadDb();
-function save(){ try { localStorage.setItem(LS, JSON.stringify(db)); } catch {} }
+function save(){ try { localStorage.setItem(LS, JSON.stringify(db)); } catch { if (!save.failed){ save.failed = true; dlog('error', 'could not save: browser storage is blocked or full'); } } }
 function save2(){ if (cur) cur.updated = Date.now(); save(); }
 
 /* ---------- state ---------- */
@@ -432,7 +494,7 @@ let lastCountKey = '';
 let userMuted = !!db.settings.muted, soundOff = userMuted;
 let zoom = false, zoomView = null, drag = null, lastPrev = 0, lastPrevT = 0;
 let fsOn = false, fsPseudo = false, fsReal = false, idleTimer = 0;
-let adManual = false, adDetected = false, lastFit = null;
+let adManual = false, adDetected = false, lastFit = null, lastState = '';
 
 /* ---------- helpers ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -554,12 +616,13 @@ new ResizeObserver(layoutVideo).observe($('#stage'));
 async function openVideo(id){
   cur = db.videos[id] || (db.videos[id] = {id, title:'', period:0, anchor:null, rangeStart:null, rangeEnd:null, updated:Date.now()});
   taps = []; sess = null; ready = false; duration = cur.dur || 0; lastRaw = -1; lastCountKey = ''; zoom = false;
-  adManual = false; adDetected = false; setMore(false);
+  adManual = false; adDetected = false; lastState = ''; setMore(false);
+  dlog('video', 'open: ' + (hasGrid() ? 'beat set (' + (60/cur.period).toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cur.dur || 'none'));
   setRate(1);
   showView('player'); stageMsg('Loading video…');
   setTab(hasGrid() ? 'practice' : 'beats');
   $('#heading').textContent = cur.title || 'Loading…';
-  try { await loadApi(); } catch { stageMsg('Could not reach YouTube. Check your connection and try again.'); return; }
+  try { await loadApi(); } catch { dlog('error', 'the YouTube player script did not load (offline or blocked)'); stageMsg('Could not reach YouTube. Check your connection and try again.'); return; }
   if (player && player.cueVideoById){ player.cueVideoById(id); ready = true; player.setPlaybackRate(rate); applyPhaseMute(); stageMsg(''); return; }
   player = new YT.Player('player', {
     videoId: id,
@@ -568,12 +631,13 @@ async function openVideo(id){
   });
 }
 function captionsOff(){ try { player.unloadModule('captions'); player.unloadModule('cc'); } catch {} }
-function onReady(){ ready = true; stageMsg(''); player.setPlaybackRate(rate); captionsOff(); applyPhaseMute(); onLoaded(false); layoutVideo(); }
+function onReady(){ ready = true; dlog('player', 'ready'); stageMsg(''); player.setPlaybackRate(rate); captionsOff(); applyPhaseMute(); onLoaded(false); layoutVideo(); }
 /* The video's title and length are read only while it is cued, before anything plays. Once it plays, an ad can report its own
    length, and that must never replace the real one, because the trimmed range is clamped to it. The length is also remembered. */
 function acceptDuration(d, force){
   if (!d || (duration && !force) || d === duration) return;
   duration = d; if (cur){ cur.dur = d; save(); }
+  dlog('video', 'length ' + d + ' s' + (force ? ' (read while cued)' : ''));
   refreshAll();
 }
 function onLoaded(force){
@@ -585,6 +649,10 @@ function onLoaded(force){
 function onState(e){
   ready = true;
   playing = e.data === 1;
+  // log the main states, but not the constant play/pause of a running practice (it logs its own steps), and not buffering
+  const stateName = {0:'ended', 1:'playing', 2:'paused', 5:'cued'}[e.data];
+  if (stateName && stateName !== lastState && !(sess && (e.data === 1 || e.data === 2))) dlog('player', stateName);
+  if (stateName) lastState = stateName;
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
   if (e.data === 5) onLoaded(true);
   if (e.data === 1){ stageMsg(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
@@ -594,6 +662,7 @@ function onState(e){
 }
 function onErr(e){
   const c = e.data;
+  dlog('error', 'YouTube player error ' + c);
   stageMsg(c === 101 || c === 150 ? "This video's owner doesn't allow it to play here. Try another upload of the same practice video."
          : c === 100 ? 'Video not found or private.' : c === 2 ? "That link doesn't look like a valid video." : 'Could not play this video (error ' + c + ').');
 }
@@ -620,6 +689,7 @@ function toggleMute(){
   if (!ready) return;
   if (soundOff){ userMuted = false; soundOff = false; player.unMute(); } else { userMuted = true; soundOff = true; player.mute(); }
   db.settings.muted = userMuted; save(); syncControls();
+  dlog('sound', 'you turned the sound ' + (soundOff ? 'off' : 'on'));
 }
 /* Sound follows the phase (block drill vs whole section) unless you muted it yourself. */
 function phaseMusic(){
@@ -636,6 +706,7 @@ function applyPhaseMute(){
 /* ---------- full screen ---------- */
 function setFs(on){
   fsOn = on;
+  setTimeout(() => dlog('fullscreen', fsOn ? 'on, ' + (fsPseudo ? 'fallback layout' : 'browser full screen') + ', stage ' + $('#stage').clientWidth + 'x' + $('#stage').clientHeight : 'off'), 250);
   const st = $('#stage');
   st.classList.toggle('fs', on); st.classList.toggle('pseudo', on && fsPseudo);
   document.body.classList.toggle('noscroll', on && fsPseudo);
@@ -666,8 +737,8 @@ async function toggleFs(){
     const p = rf.call(st);
     if (p && p.then) await Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('no answer')), 800))]);
     await new Promise(r => setTimeout(r, 150));
-    if (!fsOn){ fsPseudo = true; setFs(true); }
-  } catch { if (!fsOn){ fsPseudo = true; setFs(true); } }
+    if (!fsOn){ dlog('fullscreen', 'the browser did not go full screen, using the fallback layout'); fsPseudo = true; setFs(true); }
+  } catch { if (!fsOn){ dlog('fullscreen', 'the browser refused full screen, using the fallback layout'); fsPseudo = true; setFs(true); } }
 }
 function onFsChange(){
   const el = document.fullscreenElement || document.webkitFullscreenElement;
@@ -718,6 +789,7 @@ function jumpTo(pred, mode){
   const plan = buildPlan(mode); if (!plan.length) return;
   let i = plan.findIndex(pred); if (i < 0) i = 0;
   sess = newSess(mode, plan, i);
+  dlog('practice', 'start (' + mode + '): ' + plan.length + ' steps, from step ' + (i + 1));
   applyStep(0);
 }
 const gotoBlock = n => jumpTo(s => s.kind === 'block' && s.block === n, 'all');
@@ -739,7 +811,7 @@ function planLead(s, st){
   if (lead <= 0) return;
   if (st.s - lead * P >= -0.25 * P){ s.from = Math.max(0, st.s - lead * P); s.leadN = lead; return; }
   const from = Math.max(st.s, st.e - lead * P), n = Math.round((st.e - from) / P);
-  if (n >= 1){ s.from = from; s.pre = true; s.leadN = n; }
+  if (n >= 1){ s.from = from; s.pre = true; s.leadN = n; if (s.rep === 0) dlog('practice', 'count-in loops round: ' + n + ' counts from the end of the part'); }
 }
 /* the end of a stretch of playing: the end of a pre-roll jumps to the part's start, the end of the part moves on */
 function segmentEnd(){
@@ -750,6 +822,7 @@ function segmentEnd(){
 }
 function applyStep(delay){
   const s = sess, st = s.plan[s.i];
+  dlog('practice', 'step ' + (s.i + 1) + '/' + s.plan.length + ': ' + stepLabel(st) + ' at ' + st.rate + 'x, ' + st.reps + (st.kind === 'block' ? ' reps' : ' runs'));
   setRate(st.rate); applyPhaseMute();
   startRep(delay);
 }
@@ -770,8 +843,8 @@ function advance(){
   if (s.rep < st.reps){ startRep(rest); }
   else {
     const nx = s.plan[s.i + 1];
-    if (!nx){ s.done = true; if (ready) player.pauseVideo(); applyPhaseMute(); }
-    else if (nx.block !== st.block && !db.settings.auto){ s.i++; s.rep = 0; s.waiting = true; if (ready) player.pauseVideo(); }
+    if (!nx){ s.done = true; dlog('practice', 'complete'); if (ready) player.pauseVideo(); applyPhaseMute(); }
+    else if (nx.block !== st.block && !db.settings.auto){ s.i++; s.rep = 0; s.waiting = true; dlog('practice', 'waiting for you before ' + stepLabel(nx)); if (ready) player.pauseVideo(); }
     else { s.i++; s.rep = 0; applyStep(rest); return; }
   }
   updateSessionUI();
@@ -783,7 +856,7 @@ function currentSpan(){
   const st = refStep();
   return !st ? null : st.kind === 'block' ? [st.block, st.block] : st.kind === 'connect' ? [st.a, st.b] : null;
 }
-function endSession(){ if (sess){ clearTimeout(sess.timer); sess = null; applyPhaseMute(); updateSessionUI(); } }
+function endSession(why){ if (sess){ dlog('practice', 'stopped: ' + (why || 'the trim, plan or beat was changed')); clearTimeout(sess.timer); sess = null; applyPhaseMute(); updateSessionUI(); } }
 function sessMain(){
   if (!sess || sess.done) return gotoBlock(1);
   if (sess.waiting){ sess.waiting = false; return applyStep(0); }
@@ -803,6 +876,7 @@ function tick(){
   const dNow = ready && playing && duration && player.getDuration ? player.getDuration() : 0;
   const wasAd = adDetected;
   adDetected = dNow > 0 && Math.abs(dNow - duration) > 1.5;
+  if (adDetected !== wasAd) dlog('ad', adDetected ? 'ad detected (the player reports ' + dNow.toFixed(0) + ' s, the video is ' + duration + ' s)' : 'ad ended');
   const adOn = adDetected || adManual;
   $('#stage').classList.toggle('ad', adOn);
   const note = $('#adNote'),
@@ -836,7 +910,7 @@ function tick(){
   if (running && performance.now() > sess.guard){
     const st = sess.plan[sess.i];
     if (t >= st.e && t < st.e + 1.5) segmentEnd();
-    else if (t < sess.from - 1.5 || t >= st.e + 1.5) endSession();   // you scrubbed away, so stop driving the video
+    else if (t < sess.from - 1.5 || t >= st.e + 1.5) endSession('the playhead left the part (at ' + t.toFixed(1) + ' s, expected ' + sess.from.toFixed(1) + ' to ' + st.e.toFixed(1) + ' s)');   // you scrubbed away, so stop driving the video
   }
 
   // big count-in number over the video while the count-in is playing
@@ -848,6 +922,7 @@ function tick(){
 /* ---------- beats tab ---------- */
 function applyTaps(){
   lastFit = fitBeats(taps);
+  if (taps.length % 4 === 0) dlog('beat', 'taps ' + taps.length + ': ' + (lastFit ? (60/lastFit.period).toFixed(1) + ' BPM, steadiness ' + Math.round(lastFit.rms*1000) + ' ms' : 'could not find a steady beat yet'));
   if (lastFit){ cur.period = lastFit.period; cur.anchor = lastFit.phase; sess = null; fixRange(); save2(); refreshAll(); }
   updateBeatsUI();
 }
@@ -858,11 +933,12 @@ function tap(){
   if (navigator.vibrate) navigator.vibrate(8);
   const b = $('#tapBtn'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90);
 }
-function undoTap(){ if (!taps.length) return; taps.pop(); if (taps.length >= 4) applyTaps(); else { lastFit = null; updateBeatsUI(); } }
+function undoTap(){ if (!taps.length) return; dlog('beat', 'undo tap'); taps.pop(); if (taps.length >= 4) applyTaps(); else { lastFit = null; updateBeatsUI(); } }
 function rebase(){ if (hasRange()) cur.anchor = cur.rangeStart; }
 /* Type the BPM instead of tapping it. With no beat yet, the current position counts as a beat until you press "A beat is right here". */
 function applyBpm(v){
-  if (!cur || !(v >= 40 && v <= 300)) return;
+  if (!cur || !(v >= 40 && v <= 300)){ if (cur) dlog('beat', 'typed BPM rejected: ' + v); return; }
+  dlog('beat', 'typed BPM ' + v + (hasGrid() ? '' : ' (no beat yet, so the playhead counts as a beat)'));
   if (hasGrid()){ rebase(); cur.period = 60/v; } else { cur.period = 60/v; cur.anchor = nowT(); }
   sess = null; lastFit = null; fixRange(); save2(); refreshAll(); lastCountKey = '';
 }
@@ -870,6 +946,7 @@ function applyBpm(v){
 function syncHere(){
   if (!hasGrid()) return;
   const t = nowT(), d = t - snap(t);
+  dlog('beat', 'a beat is right here: moved the count by ' + Math.round(d*1000) + ' ms');
   cur.anchor += d; if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; }
   sess = null; save2(); refreshAll(); lastCountKey = '';
 }
@@ -928,7 +1005,7 @@ function moveHandle(which, t, preview){
     const n = performance.now(); if (n - lastPrev > 120){ lastPrev = n; seek(lastPrevT); }
   }
 }
-function commitRange(seekTo){ save2(); endSession(); if (seekTo != null) seek(seekTo); updateSessionUI(); }
+function commitRange(seekTo){ if (hasRange()) dlog('range', fmtd(cur.rangeStart) + ' to ' + fmtd(cur.rangeEnd) + ', ' + (tToK(cur.rangeEnd) - tToK(cur.rangeStart)) + ' counts, ' + blocks().length + ' blocks'); save2(); endSession(); if (seekTo != null) seek(seekTo); updateSessionUI(); }
 for (const [id, which] of [['tHS', 's'], ['tHE', 'e']]){
   const h = $('#' + id);
   h.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId); drag = which; lastPrevT = previewT(which); h.classList.add('drag'); });
@@ -975,7 +1052,7 @@ function renderSteps(){
   $('#optCounts').value = s.counts; $('#optGroup').value = s.group; $('#optRest').value = s.rest;
   $('#optLeadS').value = s.leadStart; $('#optLeadR').value = s.leadRepeat;
 }
-function planChanged(){ endSession(); if (hasRange()){ updateRangeLite(); } updateSessionUI(); }
+function planChanged(){ dlog('plan', 'plan or options changed'); endSession(); if (hasRange()){ updateRangeLite(); } updateSessionUI(); }
 function renderChips(){
   if (!hasRange()) return;
   const bl = blocks(), G = groupSize(), st = db.settings;
@@ -1059,7 +1136,7 @@ function showView(v){
   $('#viewHome').hidden = v !== 'home'; $('#viewPlayer').hidden = v !== 'player';
   $('#backBtn').hidden = v === 'home';
   document.body.classList.toggle('pm', v === 'player');
-  if (v === 'home'){ endSession(); $('#heading').textContent = 'Run It Back'; renderHome(); if (player && player.pauseVideo && ready) player.pauseVideo(); }
+  if (v === 'home'){ endSession('you went back to the list'); $('#heading').textContent = 'Run It Back'; renderHome(); if (player && player.pauseVideo && ready) player.pauseVideo(); }
   else requestAnimationFrame(layoutVideo);
 }
 function setTab(t){
@@ -1113,7 +1190,7 @@ $('#undoTap').addEventListener('click', undoTap);
 $('#bpmSet').addEventListener('click', () => applyBpm(+$('#bpmIn').value));
 $('#bpmIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); applyBpm(+$('#bpmIn').value); } });
 $('#syncHere').addEventListener('click', syncHere);
-$('#adBtn').addEventListener('click', () => { adManual = !adManual; syncControls(); });
+$('#adBtn').addEventListener('click', () => { adManual = !adManual; dlog('ad', 'Ad? button ' + (adManual ? 'on (video unlocked)' : 'off')); syncControls(); });
 $('#moreBtn').addEventListener('click', () => { setMore(!$('#stage').classList.contains('more')); bumpControls(); });
 $('#panelBeats').addEventListener('click', e => {
   const n = e.target.closest('[data-nudge]'), b = e.target.closest('[data-bpm]');
@@ -1122,7 +1199,9 @@ $('#panelBeats').addEventListener('click', e => {
   if (b){ rebase(); cur.period = 60/(60/cur.period + +b.dataset.bpm); }
   if (e.target.id === 'halfBtn'){ rebase(); cur.period *= 2; }
   if (e.target.id === 'dblBtn'){ rebase(); cur.period /= 2; }
-  if (n || b || e.target.id === 'halfBtn' || e.target.id === 'dblBtn'){ sess = null; fixRange(); save2(); refreshAll(); lastCountKey = ''; }
+  if (n || b || e.target.id === 'halfBtn' || e.target.id === 'dblBtn'){
+    dlog('beat', 'adjusted: ' + (n ? 'timing ' + n.dataset.nudge + ' s' : b ? 'tempo ' + b.dataset.bpm + ' BPM' : e.target.id === 'halfBtn' ? 'count half as fast' : 'count twice as fast'));
+    sess = null; fixRange(); save2(); refreshAll(); lastCountKey = ''; }
 });
 
 /* plan editors: speeds, repeats, order, add and remove */
@@ -1190,7 +1269,18 @@ document.addEventListener('keydown', e => {
 
 /* ---------- init ---------- */
 $('#cSegs').innerHTML = '<i class="one"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>';
+/* debug panel */
+$('#dbgBtn').addEventListener('click', openDebug);
+$('#dbgClose').addEventListener('click', closeDebug);
+$('#dbgCopy').addEventListener('click', copyDebug);
+$('#dbgClear').addEventListener('click', () => { logs = []; try { localStorage.removeItem(LOGK); } catch {} dlog('start', 'log cleared'); $('#dbgMsg').textContent = 'Cleared.'; });
+$('#dbgPanel').addEventListener('click', e => { if (e.target === $('#dbgPanel')) closeDebug(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#dbgPanel').hidden){ e.preventDefault(); closeDebug(); } });
+document.addEventListener('visibilitychange', () => dlog('page', document.hidden ? 'hidden (screen locked or app switched)' : 'visible again'));
+window.addEventListener('orientationchange', () => setTimeout(() => dlog('page', 'rotated: window ' + innerWidth + 'x' + innerHeight), 300));
+
 renderSteps(); syncControls(); renderHome(); requestAnimationFrame(tick);
+dlog('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(db.videos).length + ' saved covers');
 window.__cl = {fitBeats, parseId, getPlayer: () => player};
 })();
 </script>
