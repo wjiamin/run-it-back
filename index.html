@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Run It Back</title>
+<style>
+:root{
+  --bg:#f5f5f8;--panel:#fff;--panel2:#eef0f5;--line:#dcdfe8;--text:#16181f;--muted:#5f6675;
+  --accent:#e6317a;--accent-ink:#fff;--ok:#1a9d63;--warn:#b7791f;--shadow:0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1015;--panel:#171a21;--panel2:#20242e;--line:#2b303c;--text:#eef0f5;--muted:#9aa3b3;
+  --accent:#ff5c9a;--accent-ink:#1a0b13;--ok:#3ecf8e;--warn:#e8b04a;--shadow:none}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:env(safe-area-inset-bottom)}
+body.noscroll{overflow:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{max-width:760px;margin:0 auto;padding:0 16px 40px}
+body.pm .app{max-width:1280px}
+.top{display:flex;align-items:center;gap:8px;padding:12px 0 10px}
+.top h1{font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;min-width:40px;height:40px;padding:0 12px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;min-height:40px;padding:6px 14px}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
+.btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.ico{background:var(--panel2);border:1px solid var(--line);border-radius:8px;width:30px;height:34px;padding:0;font-size:14px;line-height:1}
+.ico:disabled{opacity:.35}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-top:12px}
+.card h2{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+input[type=number]{width:60px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 6px;min-height:36px}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);margin:0;flex:none}
+input[type=range]{accent-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* home */
+.recent{list-style:none;margin:0;padding:0}
+.recent li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
+.recent li:first-child{border-top:0}
+.recent .open{flex:1;text-align:left;background:none;border:0;padding:12px 0;min-width:0}
+.recent .t{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.err{color:var(--warn);margin:8px 0 0;font-size:14px}
+
+/* player layout: video first, big */
+.stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:14px}
+#playerWrap{position:absolute;pointer-events:none}
+#playerWrap.mirror{transform:scaleX(-1)}
+#playerWrap iframe{width:100%;height:100%;border:0;display:block}
+.mask{position:absolute;left:0;right:0;background:#000;z-index:2;pointer-events:none}
+#maskT{top:0}#maskB{bottom:0}
+.stageMsg{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:20px;background:rgba(0,0,0,.7);font-size:14px}
+@media (max-width:899px){
+  .vcol{position:sticky;top:0;z-index:6;background:var(--bg);margin:0 -16px;padding-bottom:6px}
+  .vcol .stage{border-radius:0}
+  #ctlMainHome{padding:0 16px}
+}
+@media (min-width:900px){
+  .playerGrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;align-items:start}
+  .vcol{position:sticky;top:12px}
+  .stage{width:min(100%,calc((100vh - 210px)*16/9));margin:0 auto}
+}
+
+/* controls (move into the stage in full screen) */
+.count{display:flex;align-items:center;gap:12px;margin-top:8px}
+.count .num{font-size:36px;font-weight:700;line-height:1;width:40px;text-align:center;font-variant-numeric:tabular-nums}
+.count .segs{flex:1;display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.count .segs i{height:10px;border-radius:5px;background:var(--panel2);border:1px solid var(--line)}
+.count .segs i.on{background:var(--accent);border-color:var(--accent)}
+.count .segs i.one.on{background:var(--ok);border-color:var(--ok)}
+.count .lbl{min-width:80px;text-align:right;font-size:13px;color:var(--muted)}
+.bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.bar input[type=range]{flex:1;min-width:0}
+.time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{background:var(--panel2);border:0;border-right:1px solid var(--line);padding:6px 10px;min-height:38px;font-size:14px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg button:disabled{opacity:.5;cursor:default}
+#ctlOpts{margin-top:10px}
+.miniSess{display:none;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
+.miniSess .ms{flex:1;min-width:120px;font-size:13px}
+
+.fsBar{display:none}
+.stage.fs{position:relative;width:100%;height:100%;max-height:none;aspect-ratio:auto;border-radius:0;margin:0}
+.stage.fs.pseudo{position:fixed;inset:0;z-index:100;width:100vw;height:100vh;height:100dvh}
+.stage.fs .fsBar{display:block;position:absolute;left:0;right:0;bottom:0;z-index:5;padding:28px 18px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,0));color:#fff;transition:opacity .25s;
+  --text:#fff;--muted:#d3d7e0;--panel2:rgba(255,255,255,.16);--line:rgba(255,255,255,.28)}
+.stage.fs.idle .fsBar{opacity:0;pointer-events:none}
+.stage.fs.idle{cursor:none}
+.stage.fs .miniSess{display:flex}
+.stage.fs #ctlOpts{margin-top:8px}
+.stage.fs .count .num{font-size:30px}
+
+.tabs{display:flex;gap:6px;margin-top:14px}
+.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:42px;font-weight:600}
+.tabs button[aria-selected=true]{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* beats */
+.tap{width:100%;min-height:88px;font-size:22px;font-weight:700;border-radius:16px;border:2px solid var(--accent);background:var(--panel2);touch-action:manipulation}
+.tap:active,.tap.hit{background:var(--accent);color:var(--accent-ink)}
+.bpm{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+ol.steps{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
+ol.steps li{margin:2px 0}
+
+/* trim window */
+.tTrack{position:relative;height:64px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+.tIn{position:absolute;left:16px;right:16px;top:0;bottom:0}
+.tSel{position:absolute;top:0;bottom:0;background:rgba(230,49,122,.2);border-top:4px solid var(--accent);border-bottom:4px solid var(--accent);box-shadow:0 0 0 200vmax rgba(0,0,0,.32);pointer-events:none}
+.tTick{position:absolute;top:10px;bottom:10px;width:1px;background:var(--accent);opacity:.55;pointer-events:none}
+.tHead{position:absolute;top:0;bottom:0;width:20px;margin-left:-10px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:ew-resize;touch-action:none;z-index:2}
+.tHead::before{content:'';position:absolute;top:-6px;bottom:-6px;left:-12px;right:-12px}
+.tHead::after{content:'';width:3px;height:26px;border-radius:2px;background:var(--accent-ink);opacity:.85}
+.tHead.drag{filter:brightness(1.15)}
+.tPlay{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--text);opacity:.85;pointer-events:none;z-index:1}
+.tLbl{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tLbl b{color:var(--text)}
+.nudges{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.nudges .g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* plan */
+.stepsHead{display:grid;grid-template-columns:22px 1fr;gap:10px;font-size:12px;color:var(--muted);margin-bottom:4px}
+.srow{display:flex;align-items:center;gap:8px;margin-top:8px}
+.srow .num{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+.srow .mv{display:flex;gap:4px;margin-left:auto}
+.opt{display:flex;align-items:center;gap:10px;margin-top:12px}
+.opt label{flex:1}
+.sess .title{font-size:20px;font-weight:700}
+.prog{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:12px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;min-height:52px}
+.chip b{display:block;font-size:16px}
+.chip span{font-size:11px;color:var(--muted)}
+.chip.playing{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.playing span{color:var(--accent-ink)}
+.cue{position:absolute;left:14px;top:8px;z-index:3;font-size:clamp(44px,9vw,96px);font-weight:800;line-height:1;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.75);pointer-events:none;font-variant-numeric:tabular-nums}
+.cgrp{margin-top:12px}
+.cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.cgrp .chips{margin-top:0}
+.chip.conn{border-style:dashed;border-color:var(--accent)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button id="backBtn" class="ghost" hidden aria-label="Back to my covers">←</button>
+    <h1 id="heading">Run It Back</h1>
+  </header>
+
+  <!-- HOME -->
+  <section id="viewHome">
+    <form id="loadForm" class="card">
+      <h2>Learn a new cover</h2>
+      <p class="muted small" style="margin-top:0">Paste the YouTube dance practice video you're learning from.</p>
+      <div class="row" style="flex-wrap:nowrap">
+        <input id="urlInput" type="text" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…" aria-label="YouTube link">
+        <button class="btn primary" type="submit">Load</button>
+      </div>
+      <p id="homeErr" class="err" hidden></p>
+    </form>
+
+    <div id="recentCard" class="card" hidden>
+      <h2>My covers</h2>
+      <ul id="recent" class="recent"></ul>
+    </div>
+
+    <div class="card">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>Load the video. It plays mirrored, with speed control, and goes full screen.</li>
+        <li>Tap along to the beat once so the app can count for you.</li>
+        <li>Trim the part you want to learn. The app cuts it into 8-count blocks.</li>
+        <li>Press Start. Each block starts on a 5-6-7-8 count-in and plays slow, then faster, then full speed, with a short pause after each run. Every few blocks are connected together, and then the whole section runs with the music.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- PLAYER -->
+  <section id="viewPlayer" hidden>
+    <div class="playerGrid">
+      <div class="vcol">
+        <div class="stage mirrorHost" id="stage">
+          <div id="playerWrap" class="mirror"><div id="player"></div></div>
+          <div class="mask" id="maskT"></div><div class="mask" id="maskB"></div>
+          <div id="stageMsg" class="stageMsg" hidden></div>
+          <div class="cue" id="cue" hidden aria-hidden="true"></div>
+          <div class="fsBar" id="fsBar"></div>
+        </div>
+
+        <div id="ctlMainHome">
+          <div id="ctlMain">
+            <div class="count" aria-live="off">
+              <div class="num" id="cNum">–</div>
+              <div class="segs" id="cSegs"></div>
+              <div class="lbl" id="cLbl">no beat yet</div>
+            </div>
+            <div class="bar">
+              <button id="playBtn" class="btn sm" aria-label="Play or pause" style="min-width:46px">▶</button>
+              <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+              <span class="time" id="timeLbl">0:00</span>
+              <button id="muteBtn" class="btn sm" aria-label="Mute or unmute" style="min-width:42px">🔊</button>
+              <button id="fsBtn" class="btn sm" aria-label="Full screen" style="min-width:42px">⛶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pcol">
+        <div id="ctlOptsHome">
+          <div id="ctlOpts" class="row">
+            <div class="seg" id="rateSeg" role="group" aria-label="Speed">
+              <button data-r="0.25">.25×</button><button data-r="0.5">.5×</button><button data-r="0.75">.75×</button><button data-r="1">1×</button>
+            </div>
+            <button id="mirrorBtn" class="btn sm" aria-pressed="true">Mirror</button>
+            <div class="miniSess" id="miniSess">
+              <span class="ms" id="mSub"></span>
+              <button id="mPrev" class="btn sm" aria-label="Previous block">◀</button>
+              <button id="mMain" class="btn sm primary">Start</button>
+              <button id="mNext" class="btn sm" aria-label="Next block">▶</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button id="tabBeats" role="tab" aria-selected="true">1 · Beats</button>
+          <button id="tabPractice" role="tab" aria-selected="false">2 · Practice</button>
+        </div>
+
+        <!-- BEATS -->
+        <div id="panelBeats">
+          <div class="card">
+            <ol class="steps">
+              <li>Play the song and tap on every beat, about 16 taps. Then skip to near the end and tap 8 more. That keeps the count from drifting.</li>
+              <li>Watch the count under the video. If it feels early or late, nudge it.</li>
+              <li>Then trim what to learn. The count starts from your chosen start point.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <div class="row between">
+              <div><div class="bpm" id="bpmLbl">–</div><div class="muted small" id="bpmSub">Not set yet</div></div>
+              <button id="resetTaps" class="btn sm">Reset taps</button>
+            </div>
+            <button id="tapBtn" class="tap" style="margin-top:12px">TAP THE BEAT <span id="tapN" class="small muted"></span></button>
+            <div class="row" style="margin-top:12px">
+              <button id="toPractice" class="btn primary" disabled>Next: trim what to learn →</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Fine-tune</h2>
+            <div class="row">
+              <span class="muted small" style="width:64px">Timing</span>
+              <button class="btn sm" data-nudge="-0.05">◀ 50ms</button><button class="btn sm" data-nudge="-0.02">◀ 20ms</button>
+              <button class="btn sm" data-nudge="0.02">20ms ▶</button><button class="btn sm" data-nudge="0.05">50ms ▶</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <span class="muted small" style="width:64px">Tempo</span>
+              <button class="btn sm" data-bpm="-0.1">−0.1</button><button class="btn sm" data-bpm="0.1">+0.1</button>
+              <button class="btn sm" id="halfBtn">Count half as fast</button><button class="btn sm" id="dblBtn">Count twice as fast</button>
+            </div>
+            <p class="muted small" style="margin-bottom:0">Tip: if the count drifts late in the song, tap 8 more beats there and the tempo tightens up.</p>
+          </div>
+        </div>
+
+        <!-- PRACTICE -->
+        <div id="panelPractice" hidden>
+          <div id="pMsg" class="card muted"></div>
+          <div id="pBody" hidden>
+            <div class="card">
+              <div class="row between"><h2 style="margin:0">Trim what to learn</h2><button id="zoomBtn" class="btn sm" aria-pressed="false">Zoom to selection</button></div>
+              <p class="muted small" style="margin:4px 0 10px">Drag the two pink handles. Tap the bar to jump, then use the buttons to set a handle to the playhead.</p>
+              <div class="tTrack" id="tTrack">
+                <div class="tIn" id="tIn">
+                  <div class="tSel" id="tSel"></div>
+                  <div id="tTicks"></div>
+                  <div class="tPlay" id="tPlay"></div>
+                  <div class="tHead" id="tHS" role="slider" tabindex="0" aria-label="Start of the part to learn"></div>
+                  <div class="tHead" id="tHE" role="slider" tabindex="0" aria-label="End of the part to learn"></div>
+                </div>
+              </div>
+              <div class="tLbl"><span>Start <b id="tsLbl"></b></span><span id="rangeInfo"></span><span>End <b id="teLbl"></b></span></div>
+              <div class="nudges">
+                <div class="g"><span class="muted small">Start</span><button class="btn sm" data-tn="s:-1">◀ 1</button><button class="btn sm" data-tn="s:1">1 ▶</button><button class="btn sm" id="rsNow">Set to now</button></div>
+                <div class="g"><span class="muted small">End</span><button class="btn sm" data-tn="e:-1">◀ 1</button><button class="btn sm" data-tn="e:1">1 ▶</button><button class="btn sm" id="reNow">Set to now</button></div>
+              </div>
+            </div>
+
+            <div class="card sess">
+              <div class="title" id="sTitle">Ready when you are</div>
+              <div class="muted small" id="sSub"></div>
+              <div class="prog"><i id="sProg"></i></div>
+              <div class="row">
+                <button id="sMain" class="btn primary">Start practice</button>
+                <button id="sPrev" class="btn sm">◀ Block</button>
+                <button id="sRestart" class="btn sm">Restart this part</button>
+                <button id="sNext" class="btn sm">Block ▶</button>
+              </div>
+              <div class="row" style="margin-top:8px"><button id="sFull" class="btn sm">Run the whole section only</button></div>
+              <div class="chips" id="chips"></div>
+            </div>
+
+            <div class="card">
+              <h2>Block plan: every 8-count block</h2>
+              <div id="planB" data-list="blockSteps"></div>
+              <button class="btn sm" data-add="blockSteps" style="margin-top:10px">+ Add speed</button>
+            </div>
+
+            <div class="card">
+              <h2>Connect plan: put the blocks together</h2>
+              <div class="opt" style="margin-top:0"><input id="optConnectOn" type="checkbox"><label for="optConnectOn">Connect the blocks together as you go</label></div>
+              <div class="opt"><input id="optGroup" type="number" min="2" max="8" step="1"><label for="optGroup">blocks in each connected run</label></div>
+              <div id="planC" data-list="connectSteps" style="margin-top:4px"></div>
+              <button class="btn sm" data-add="connectSteps" style="margin-top:10px">+ Add speed</button>
+            </div>
+
+            <div class="card">
+              <h2>Whole-section plan: the full range, with music</h2>
+              <div class="opt" style="margin-top:0"><input id="optFullAfter" type="checkbox"><label for="optFullAfter">Run the whole section after the blocks</label></div>
+              <div id="planF" data-list="fullSteps"></div>
+              <button class="btn sm" data-add="fullSteps" style="margin-top:10px">+ Add speed</button>
+            </div>
+
+            <div class="card">
+              <h2>Options</h2>
+              <div class="opt" style="margin-top:0"><input id="optAuto" type="checkbox"><label for="optAuto">Move on to the next block automatically</label></div>
+              <div class="opt"><input id="optMusicB" type="checkbox"><label for="optMusicB">Play the music during block drills</label></div>
+              <div class="opt"><input id="optMusicF" type="checkbox"><label for="optMusicF">Play the music during connected and whole-section runs</label></div>
+              <div class="opt"><input id="optCounts" type="number" min="2" max="16" step="1"><label for="optCounts">counts per block</label></div>
+              <div class="opt"><input id="optRest" type="number" min="0" max="10" step="0.5"><label for="optRest">seconds to pause after each run-through</label></div>
+              <div class="opt"><input id="optLeadS" type="number" min="0" max="8" step="1"><label for="optLeadS">count-in when starting a part (4 = 5, 6, 7, 8)</label></div>
+              <div class="opt"><input id="optLeadR" type="number" min="0" max="8" step="1"><label for="optLeadR">count-in before each repeat (2 = 7, 8)</label></div>
+              <p class="muted small" style="margin:8px 0 0">If the video doesn't have that many counts before a part, such as at the very start, the count-in loops round and plays the last counts of the part first.</p>
+              <div class="row" style="margin-top:14px"><button id="resetPlan" class="btn sm">Reset plan to defaults</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const LS = 'coverLearner.v1';
+
+/* ---------- storage ---------- */
+const DEF_BLOCK = () => [{rate:0.5,on:true,reps:3},{rate:0.75,on:true,reps:3},{rate:1,on:true,reps:3}];
+const DEF_FULL = () => [{rate:0.75,on:true,reps:2},{rate:1,on:true,reps:3}];
+const DEF_CONN = () => [{rate:0.75,on:true,reps:2},{rate:1,on:true,reps:2}];
+const defPlan = () => ({blockSteps:DEF_BLOCK(), connectSteps:DEF_CONN(), fullSteps:DEF_FULL(), connectOn:true, group:4, fullAfter:true, auto:true,
+  musicBlocks:true, musicFull:true, leadStart:4, leadRepeat:2, rest:2});
+const SETTINGS_V = 2;
+const fresh = () => ({settings:Object.assign({counts:8, mirror:true, muted:false, v:SETTINGS_V}, defPlan()), videos:{}});
+function loadDb(){
+  try {
+    const d = JSON.parse(localStorage.getItem(LS));
+    if (d && d.videos){
+      const f = fresh();
+      // older saves kept one list of speeds; carry it over as the block plan
+      if (d.settings && Array.isArray(d.settings.speeds) && !d.settings.blockSteps) d.settings.blockSteps = d.settings.speeds.map(x => ({rate:x.rate, on:!!x.on, reps:x.reps || 3}));
+      const savedV = d.settings && d.settings.v;
+      d.settings = Object.assign(f.settings, d.settings);
+      // version 2 introduced count-ins, a pause after each run-through, and connected runs: give saved settings the new defaults
+      if (!(savedV >= SETTINGS_V)){
+        const n = defPlan(); Object.assign(d.settings, {leadStart:n.leadStart, leadRepeat:n.leadRepeat, rest:n.rest, connectOn:n.connectOn, group:n.group, connectSteps:n.connectSteps, v:SETTINGS_V});
+      }
+      delete d.settings.leadIn; delete d.settings.speeds;
+      return d;
+    }
+  } catch {}
+  return fresh();
+}
+let db = loadDb();
+function save(){ try { localStorage.setItem(LS, JSON.stringify(db)); } catch {} }
+function save2(){ if (cur) cur.updated = Date.now(); save(); }
+
+/* ---------- state ---------- */
+let cur = null, player = null, ready = false, duration = 0;
+let rate = 1, tab = 'beats';
+let taps = [], sess = null;
+let playing = false, dragging = false, lastRaw = -1, lastWall = 0;
+let lastCountKey = '';
+let userMuted = !!db.settings.muted, soundOff = userMuted;
+let zoom = false, zoomView = null, drag = null, lastPrev = 0, lastPrevT = 0;
+let fsOn = false, fsPseudo = false, fsReal = false, idleTimer = 0;
+
+/* ---------- helpers ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + String(s).padStart(2,'0'); };
+const fmtd = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+const median = a => { const s = [...a].sort((x,y)=>x-y), m = s.length>>1; return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+const rateLbl = r => r + '×';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+function parseId(s){
+  s = (s||'').trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  try {
+    const u = new URL(s);
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1,12) || null;
+    const v = u.searchParams.get('v'); if (v) return v.slice(0,11);
+    const m = u.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{11})/); if (m) return m[1];
+  } catch {}
+  return null;
+}
+
+/* Fit beat times to a steady grid: t = phase + i*period, by least squares. */
+function lsq(pts){
+  let n=0, sx=0, sy=0, sxy=0, sxx=0;
+  for (const [p,x] of pts){ n++; sx+=p; sy+=x; sxy+=p*x; sxx+=p*p; }
+  const den = n*sxx - sx*sx; if (n < 2 || Math.abs(den) < 1e-9) return null;
+  const b = (n*sxy - sx*sy)/den; return {b, a:(sy - b*sx)/n};
+}
+function fitBeats(ts){
+  const t = [...ts].sort((x,y)=>x-y);
+  if (t.length < 4) return null;
+  const d = []; for (let i=1;i<t.length;i++) if (t[i]-t[i-1] > 0.05) d.push(t[i]-t[i-1]);
+  if (d.length < 3) return null;
+  // Number the taps in order, refitting as we go so skipped beats and long gaps are placed correctly.
+  let b = median(d), a = t[0];
+  const pts = [[0, t[0]]];
+  for (let i=1; i<t.length; i++){
+    const idx = pts.length >= 4 ? Math.round((t[i]-a)/b) : pts[pts.length-1][0] + Math.round((t[i]-t[i-1])/b);
+    if (idx === pts[pts.length-1][0]) continue;  // double tap
+    pts.push([idx, t[i]]);
+    const f = lsq(pts); if (f && f.b > 0.1){ a = f.a; b = f.b; }
+  }
+  const f = lsq(pts);
+  return f && f.b > 0.1 ? {period:f.b, phase:f.a} : null;
+}
+
+/* ---------- beat grid and range ---------- */
+const hasGrid = () => !!cur && cur.period > 0 && cur.anchor != null;
+const hasRange = () => hasGrid() && cur.rangeStart != null && cur.rangeEnd != null;
+const counts = () => db.settings.counts;
+const blockLen = () => counts() * cur.period;
+const kToT = k => cur.anchor + k*cur.period;
+const tToK = t => Math.round((t - cur.anchor)/cur.period);
+const snap = t => kToT(tToK(t));
+function kBounds(){
+  return {min: Math.ceil(-cur.anchor/cur.period - 1e-6), max: duration ? Math.floor((duration - cur.anchor)/cur.period + 1e-6) : 1e9};
+}
+/* Keep the chosen range on the grid, in bounds, at least one count long. Creates a default range the first time. */
+function fixRange(){
+  if (!hasGrid() || !duration) return;
+  const b = kBounds();
+  let ks, ke;
+  if (cur.rangeStart == null || cur.rangeEnd == null){ ks = Math.max(0, b.min); ke = ks + 4*counts(); }
+  else { ks = tToK(cur.rangeStart); ke = tToK(cur.rangeEnd); }
+  ks = clamp(ks, b.min, b.max - 1);
+  ke = clamp(ke, ks + 1, b.max);
+  cur.rangeStart = kToT(ks); cur.rangeEnd = kToT(ke);
+}
+function blocks(){
+  const L = blockLen(), n = Math.max(1, Math.ceil((cur.rangeEnd - cur.rangeStart)/L - 1e-6));
+  return Array.from({length:n}, (_, i) => ({n:i+1, s:cur.rangeStart + i*L, e:Math.min(cur.rangeEnd, cur.rangeStart + (i+1)*L)}));
+}
+function whereIs(t){
+  if (!hasGrid()) return null;
+  const base = cur.rangeStart != null ? cur.rangeStart : cur.anchor;
+  const b = Math.floor((t - base)/cur.period + 1e-6);
+  if (b < 0){
+    // the counts just before the range are the count-in: 5, 6, 7, 8
+    return -b <= counts() ? {count: ((b % counts()) + counts()) % counts() + 1, block: 0, lead:true} : {out:'before range'};
+  }
+  if (cur.rangeEnd != null && t >= cur.rangeEnd - 1e-6) return {out:'after range'};
+  return {count: b % counts() + 1, block: Math.floor(b/counts()) + 1};
+}
+
+/* ---------- player ---------- */
+let apiPromise = null;
+function loadApi(){
+  if (apiPromise) return apiPromise;
+  apiPromise = new Promise((res, rej) => {
+    if (window.YT && YT.Player) return res();
+    window.onYouTubeIframeAPIReady = res;
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { apiPromise = null; rej(new Error('offline')); };
+    document.head.appendChild(s);
+  });
+  return apiPromise;
+}
+function stageMsg(text){ const m = $('#stageMsg'); m.hidden = !text; m.textContent = text || ''; }
+
+/* Fit a 16:9 video inside the stage. The iframe is taller than the video by D above and below,
+   and the black masks hide that strip, which is where YouTube draws its title bar. */
+const D = 96;
+function layoutVideo(){
+  const st = $('#stage'), W = st.clientWidth, H = st.clientHeight;
+  if (!W || !H) return;
+  const vh = Math.min(H, W*9/16), vw = vh*16/9, w = $('#playerWrap');
+  w.style.width = vw + 'px'; w.style.height = (vh + 2*D) + 'px';
+  w.style.left = ((W - vw)/2) + 'px'; w.style.top = ((H - vh)/2 - D) + 'px';
+  $('#maskT').style.height = $('#maskB').style.height = Math.max(0, (H - vh)/2) + 'px';
+}
+new ResizeObserver(layoutVideo).observe($('#stage'));
+
+async function openVideo(id){
+  cur = db.videos[id] || (db.videos[id] = {id, title:'', period:0, anchor:null, rangeStart:null, rangeEnd:null, updated:Date.now()});
+  taps = []; sess = null; ready = false; duration = 0; lastRaw = -1; lastCountKey = ''; zoom = false;
+  setRate(1);
+  showView('player'); stageMsg('Loading video…');
+  setTab(hasGrid() ? 'practice' : 'beats');
+  $('#heading').textContent = cur.title || 'Loading…';
+  try { await loadApi(); } catch { stageMsg('Could not reach YouTube. Check your connection and try again.'); return; }
+  if (player && player.cueVideoById){ player.cueVideoById(id); ready = true; player.setPlaybackRate(rate); applyPhaseMute(); stageMsg(''); return; }
+  player = new YT.Player('player', {
+    videoId: id,
+    playerVars: {playsinline:1, controls:0, disablekb:1, fs:0, rel:0, modestbranding:1, iv_load_policy:3, cc_load_policy:0, enablejsapi:1, origin: location.origin},
+    events: {onReady, onStateChange: onState, onError: onErr}
+  });
+}
+function captionsOff(){ try { player.unloadModule('captions'); player.unloadModule('cc'); } catch {} }
+function onReady(){ ready = true; stageMsg(''); player.setPlaybackRate(rate); captionsOff(); applyPhaseMute(); onLoaded(); layoutVideo(); }
+function onLoaded(){
+  if (!player.getVideoData) return;
+  const vd = player.getVideoData();
+  if (vd && vd.title && cur){ cur.title = vd.title; save(); $('#heading').textContent = vd.title; }
+  const d = player.getDuration() || 0;
+  if (d && d !== duration){ duration = d; refreshAll(); }
+}
+function onState(e){
+  ready = true;
+  playing = e.data === 1;
+  $('#playBtn').textContent = playing ? '❚❚' : '▶';
+  if (e.data === 5) onLoaded();
+  if (e.data === 1){ stageMsg(''); onLoaded(); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
+  if (e.data === 0 && sess && !sess.done && !sess.waiting && !sess.resting) segmentEnd();
+  lastRaw = -1;
+  updateSessionUI(); bumpControls();
+}
+function onErr(e){
+  const c = e.data;
+  stageMsg(c === 101 || c === 150 ? "This video's owner doesn't allow it to play here. Try another upload of the same practice video."
+         : c === 100 ? 'Video not found or private.' : c === 2 ? "That link doesn't look like a valid video." : 'Could not play this video (error ' + c + ').');
+}
+
+/* Smooth current time: the API updates coarsely, so extrapolate between updates. */
+function nowT(){
+  if (!ready || !player || !player.getCurrentTime) return 0;
+  const raw = player.getCurrentTime();
+  const w = performance.now();
+  if (raw !== lastRaw){ lastRaw = raw; lastWall = w; return raw; }
+  return playing ? raw + (w - lastWall)/1000 * rate : raw;
+}
+function seek(t){
+  if (!ready) return;
+  const was = playing;
+  player.seekTo(Math.max(0, t), true); lastRaw = -1;
+  if (!was) player.pauseVideo();   // seeking a paused or unstarted video would otherwise start it
+}
+function play(){ if (ready) player.playVideo(); }
+function togglePlay(){ if (!ready) return; playing ? player.pauseVideo() : player.playVideo(); }
+function setRate(r){ rate = r; if (ready && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
+function setMirror(on){ db.settings.mirror = on; save(); syncControls(); }
+function toggleMute(){
+  if (!ready) return;
+  if (soundOff){ userMuted = false; soundOff = false; player.unMute(); } else { userMuted = true; soundOff = true; player.mute(); }
+  db.settings.muted = userMuted; save(); syncControls();
+}
+/* Sound follows the phase (block drill vs whole section) unless you muted it yourself. */
+function phaseMusic(){
+  if (!sess || sess.done || sess.waiting) return true;
+  return sess.plan[sess.i].kind === 'full' ? db.settings.musicFull : db.settings.musicBlocks;
+}
+function applyPhaseMute(){
+  if (!ready || !player.mute) return;
+  soundOff = !phaseMusic() || userMuted;
+  if (soundOff) player.mute(); else player.unMute();
+  syncControls();
+}
+
+/* ---------- full screen ---------- */
+function setFs(on){
+  fsOn = on;
+  const st = $('#stage');
+  st.classList.toggle('fs', on); st.classList.toggle('pseudo', on && fsPseudo);
+  document.body.classList.toggle('noscroll', on && fsPseudo);
+  if (on){ $('#fsBar').append($('#ctlMain'), $('#ctlOpts')); }
+  else { $('#ctlMainHome').append($('#ctlMain')); $('#ctlOptsHome').append($('#ctlOpts')); st.classList.remove('idle'); clearTimeout(idleTimer); }
+  syncControls(); requestAnimationFrame(layoutVideo); setTimeout(layoutVideo, 150);
+  if (on) bumpControls();
+}
+async function toggleFs(){
+  const st = $('#stage');
+  if (fsOn){
+    if (fsReal && (document.fullscreenElement || document.webkitFullscreenElement)){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else { fsPseudo = false; fsReal = false; setFs(false); }
+    return;
+  }
+  const rf = st.requestFullscreen || st.webkitRequestFullscreen;
+  fsPseudo = !rf;
+  if (!rf) return setFs(true);
+  // Real full screen where the browser allows it (its change event calls setFs). Some browsers, and iPhone Safari, never
+  // answer or refuse, so after a moment fall back to a fixed full-window layout.
+  try {
+    const p = rf.call(st);
+    if (p && p.then) await Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('no answer')), 800))]);
+    await new Promise(r => setTimeout(r, 150));
+    if (!fsOn){ fsPseudo = true; setFs(true); }
+  } catch { if (!fsOn){ fsPseudo = true; setFs(true); } }
+}
+function onFsChange(){
+  const el = document.fullscreenElement || document.webkitFullscreenElement;
+  if (el === $('#stage')){ fsReal = true; fsPseudo = false; setFs(true); }
+  else if (fsOn && fsReal){ fsReal = false; setFs(false); }
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
+/* controls fade out while playing in full screen; touch or move to bring them back */
+function bumpControls(){
+  const st = $('#stage'); if (!fsOn) return;
+  st.classList.remove('idle'); clearTimeout(idleTimer);
+  if (playing) idleTimer = setTimeout(() => { if (fsOn && playing) st.classList.add('idle'); }, 3000);
+}
+['pointermove', 'pointerdown', 'touchstart'].forEach(ev => $('#stage').addEventListener(ev, bumpControls, {passive:true}));
+
+/* ---------- practice session: blocks, then the whole section, each at your speeds ---------- */
+const enabled = key => db.settings[key].filter(x => x.on && x.reps > 0 && x.rate > 0);
+/* Plan order: every block at your block speeds, then after each group of blocks (4 by default) that group run together,
+   and finally the whole section. Step kinds: 'block', 'connect' (a group together), 'full' (the whole range). */
+const groupSize = () => clamp(Math.round(db.settings.group) || 4, 2, 8);
+function buildPlan(mode){
+  const st = db.settings, bs = enabled('blockSteps'), cs = enabled('connectSteps'), fs = enabled('fullSteps'), plan = [];
+  const wantConn = st.connectOn && cs.length, wantFull = st.fullAfter && fs.length;
+  if (mode !== 'full'){
+    const bl = blocks(), nb = bl.length, G = groupSize();
+    const use = bs.length ? bs : (wantConn || wantFull ? [] : [{rate:1, reps:1}]);
+    for (let g = 0; g * G < nb; g++){
+      const grp = bl.slice(g * G, (g + 1) * G);
+      for (const b of grp) for (const sp of use) plan.push({kind:'block', block:b.n, s:b.s, e:b.e, rate:sp.rate, reps:sp.reps});
+      // a lone block, or a group that is already the whole section (which gets its own run below), needs no connecting run
+      if (wantConn && grp.length >= 2 && !(grp.length === nb && wantFull))
+        for (const sp of cs) plan.push({kind:'connect', block:1000 + g, a:grp[0].n, b:grp[grp.length-1].n, s:grp[0].s, e:grp[grp.length-1].e, rate:sp.rate, reps:sp.reps});
+    }
+  }
+  if (mode === 'full' || wantFull){
+    const use = fs.length ? fs : [{rate:1, reps:1}];
+    for (const sp of use) plan.push({kind:'full', block:0, s:cur.rangeStart, e:cur.rangeEnd, rate:sp.rate, reps:sp.reps});
+  }
+  return plan;
+}
+const ladderText = key => { const l = enabled(key); return l.length ? l.map(x => rateLbl(x.rate) + ' ×' + x.reps).join(' → ') : 'none'; };
+const stepLabel = st => st.kind === 'block' ? 'block ' + st.block : st.kind === 'connect' ? 'blocks ' + st.a + '–' + st.b + ' together' : 'the whole section';
+function newSess(mode, plan, i){ return {mode, plan, i, rep:0, from:0, pre:false, leadN:0, waiting:false, done:false, resting:false, guard:0, timer:0}; }
+function jumpTo(pred, mode){
+  if (!hasRange()) return;
+  clearTimeout(sess && sess.timer);
+  const plan = buildPlan(mode); if (!plan.length) return;
+  let i = plan.findIndex(pred); if (i < 0) i = 0;
+  sess = newSess(mode, plan, i);
+  applyStep(0);
+}
+const gotoBlock = n => jumpTo(s => s.kind === 'block' && s.block === n, 'all');
+const gotoConnect = g => jumpTo(s => s.kind === 'connect' && s.block === 1000 + g, 'all');
+const startFull = () => jumpTo(() => true, 'full');
+function restartPart(){
+  if (!sess || sess.done) return;
+  const st = sess.plan[sess.waiting ? sess.i - 1 : sess.i];
+  if (sess.mode === 'full') return startFull();
+  jumpTo(s => s.kind === st.kind && s.block === st.block, 'all');
+}
+/* Count-in: start a few counts early (5, 6, 7, 8) so you can get set. The first run of a part gets the longer one.
+   If the video doesn't have that many counts before the part (it starts at the very beginning), loop round instead:
+   play the last counts of the part first, then jump to its start (pre-roll). */
+const leadFor = s => s.rep === 0 ? db.settings.leadStart : db.settings.leadRepeat;
+function planLead(s, st){
+  const P = cur.period, lead = leadFor(s);
+  s.pre = false; s.from = st.s; s.leadN = 0;
+  if (lead <= 0) return;
+  if (st.s - lead * P >= -0.25 * P){ s.from = Math.max(0, st.s - lead * P); s.leadN = lead; return; }
+  const from = Math.max(st.s, st.e - lead * P), n = Math.round((st.e - from) / P);
+  if (n >= 1){ s.from = from; s.pre = true; s.leadN = n; }
+}
+/* the end of a stretch of playing: the end of a pre-roll jumps to the part's start, the end of the part moves on */
+function segmentEnd(){
+  const s = sess, st = s.plan[s.i];
+  if (!s.pre) return advance();
+  s.pre = false; s.guard = performance.now() + 700;
+  seek(st.s); play(); updateSessionUI();
+}
+function applyStep(delay){
+  const s = sess, st = s.plan[s.i];
+  setRate(st.rate); applyPhaseMute();
+  startRep(delay);
+}
+function startRep(delay){
+  const s = sess, st = s.plan[s.i];
+  clearTimeout(s.timer);
+  planLead(s, st);
+  s.guard = performance.now() + 700 + delay;
+  const go = () => { if (sess !== s) return; s.resting = false; s.guard = performance.now() + 700; seek(s.from); play(); updateSessionUI(); };
+  if (delay > 0){ s.resting = true; if (ready) player.pauseVideo(); s.timer = setTimeout(go, delay); updateSessionUI(); }
+  else go();
+}
+function skipRest(){ if (sess && sess.resting){ clearTimeout(sess.timer); sess.resting = false; startRep(0); } }
+function advance(){
+  const s = sess, st = s.plan[s.i], rest = db.settings.rest * 1000;
+  s.guard = performance.now() + 700 + rest;
+  s.rep++;
+  if (s.rep < st.reps){ startRep(rest); }
+  else {
+    const nx = s.plan[s.i + 1];
+    if (!nx){ s.done = true; if (ready) player.pauseVideo(); applyPhaseMute(); }
+    else if (nx.block !== st.block && !db.settings.auto){ s.i++; s.rep = 0; s.waiting = true; if (ready) player.pauseVideo(); }
+    else { s.i++; s.rep = 0; applyStep(rest); return; }
+  }
+  updateSessionUI();
+}
+/* the step you are on (or just finished, while waiting for you), and the blocks it covers */
+const refStep = () => !sess || sess.done ? null : sess.plan[sess.waiting ? sess.i - 1 : sess.i];
+function currentBlockNum(){ const st = refStep(); return st && st.kind === 'block' ? st.block : 0; }
+function currentSpan(){
+  const st = refStep();
+  return !st ? null : st.kind === 'block' ? [st.block, st.block] : st.kind === 'connect' ? [st.a, st.b] : null;
+}
+function endSession(){ if (sess){ clearTimeout(sess.timer); sess = null; applyPhaseMute(); updateSessionUI(); } }
+function sessMain(){
+  if (!sess || sess.done) return gotoBlock(1);
+  if (sess.waiting){ sess.waiting = false; return applyStep(0); }
+  if (sess.resting) return skipRest();
+  togglePlay();
+}
+
+/* ---------- tick ---------- */
+function tick(){
+  requestAnimationFrame(tick);
+  if (!cur || $('#viewPlayer').hidden) return;
+  if (!duration && ready && player.getDuration){ const d = player.getDuration() || 0; if (d){ duration = d; refreshAll(); } }
+  const t = nowT();
+  if (!dragging && duration) $('#scrub').value = Math.round(t/duration*1000);
+  $('#timeLbl').textContent = fmt(t) + ' / ' + fmt(duration);
+  if (!$('#pBody').hidden && duration && hasRange()){
+    const p = pct(t); const ph = $('#tPlay');
+    ph.style.display = p < 0 || p > 100 ? 'none' : ''; ph.style.left = p + '%';
+  }
+
+  // during a count-in, show the count-in numbers (5, 6, 7, 8), whether they come from before the part or from its tail
+  const running = !!sess && !sess.done && !sess.waiting && !sess.resting && playing;
+  let leadNum = 0;
+  if (running && sess.leadN > 0 && (sess.pre || t < sess.plan[sess.i].s - cur.period*0.25)){
+    const idx = Math.floor((t - sess.from)/cur.period + 0.15);
+    if (idx >= 0 && idx < sess.leadN) leadNum = ((counts() - sess.leadN + idx) % counts() + counts()) % counts() + 1;
+  }
+  const w = leadNum ? {count:leadNum, block:0, lead:true} : whereIs(t);
+  const key = w ? (w.out || w.block + ':' + w.count) : '-';
+  if (key !== lastCountKey){
+    lastCountKey = key;
+    $('#cNum').textContent = w && !w.out ? w.count : '–';
+    $('#cLbl').textContent = !w ? 'no beat yet' : w.out ? w.out : w.lead ? 'count-in' : 'Block ' + w.block;
+    [...$('#cSegs').children].forEach((el,i) => el.classList.toggle('on', !!w && !w.out && i + 1 === w.count));
+  }
+
+  if (running && performance.now() > sess.guard){
+    const st = sess.plan[sess.i];
+    if (t >= st.e && t < st.e + 1.5) segmentEnd();
+    else if (t < sess.from - 1.5 || t >= st.e + 1.5) endSession();   // you scrubbed away, so stop driving the video
+  }
+
+  // big count-in number over the video while the count-in is playing
+  const cue = leadNum ? String(leadNum) : '';
+  const cueEl = $('#cue');
+  if (cueEl.textContent !== cue){ cueEl.textContent = cue; cueEl.hidden = !cue; }
+}
+
+/* ---------- beats tab ---------- */
+function tap(){
+  if (!ready || !cur) return;
+  taps.push(nowT());
+  const f = fitBeats(taps);
+  if (f){ cur.period = f.period; cur.anchor = f.phase; sess = null; fixRange(); save2(); refreshAll(); }
+  const b = $('#tapBtn'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90);
+  updateBeatsUI();
+}
+function rebase(){ if (hasRange()) cur.anchor = cur.rangeStart; }
+function updateBeatsUI(){
+  const g = hasGrid();
+  $('#bpmLbl').textContent = g ? (60/cur.period).toFixed(1) + ' BPM' : '–';
+  $('#bpmSub').textContent = g ? 'Counting every ' + (cur.period*1000).toFixed(0) + ' ms' : (taps.length ? taps.length + ' taps so far, need 4' : 'Not set yet');
+  $('#tapN').textContent = taps.length ? '(' + taps.length + ')' : '';
+  $('#toPractice').disabled = !g;
+  document.querySelectorAll('[data-nudge],[data-bpm],#halfBtn,#dblBtn').forEach(b => b.disabled = !g);
+}
+
+/* ---------- trim window ---------- */
+function viewR(){ return zoom && zoomView ? zoomView : [0, duration || 1]; }
+function pct(t){ const [a, b] = viewR(); return (t - a)/(b - a)*100; }
+function setZoomView(){
+  const span = cur.rangeEnd - cur.rangeStart, pad = Math.max(6, span*0.25);
+  zoomView = [Math.max(0, cur.rangeStart - pad), Math.min(duration, cur.rangeEnd + pad)];
+}
+function updateTrim(){
+  if (!hasRange() || !duration) return;
+  const ps = pct(cur.rangeStart), pe = pct(cur.rangeEnd), a = clamp(ps, 0, 100), b = clamp(pe, 0, 100);
+  $('#tSel').style.left = a + '%'; $('#tSel').style.width = Math.max(0, b - a) + '%';
+  $('#tHS').style.left = a + '%'; $('#tHE').style.left = b + '%';
+  $('#tTicks').innerHTML = blocks().slice(1).map(bl => { const p = pct(bl.s); return p > 0 && p < 100 ? '<i class="tTick" style="left:' + p + '%"></i>' : ''; }).join('');
+  $('#tHS').setAttribute('aria-valuetext', fmtd(cur.rangeStart)); $('#tHE').setAttribute('aria-valuetext', fmtd(cur.rangeEnd));
+  $('#zoomBtn').setAttribute('aria-pressed', zoom);
+}
+function updateRangeLite(){
+  $('#tsLbl').textContent = fmtd(cur.rangeStart); $('#teLbl').textContent = fmtd(cur.rangeEnd);
+  const n = tToK(cur.rangeEnd) - tToK(cur.rangeStart), nb = blocks().length;
+  $('#rangeInfo').textContent = n + ' counts · ' + nb + ' block' + (nb > 1 ? 's' : '');
+  updateTrim(); renderChips();
+}
+function updateRangeUI(){ if (zoom) setZoomView(); updateRangeLite(); }
+function tFromX(x){
+  const r = $('#tIn').getBoundingClientRect(), [a, b] = viewR();
+  return a + clamp((x - r.left)/r.width, 0, 1)*(b - a);
+}
+/* the frame to show for a handle: the start itself, or a moment before the end */
+const previewT = which => which === 's' ? cur.rangeStart : Math.max(cur.rangeStart, cur.rangeEnd - 2*cur.period);
+function moveHandle(which, t, preview){
+  const b = kBounds(); let k = tToK(t);
+  if (which === 's'){ k = clamp(k, b.min, tToK(cur.rangeEnd) - 1); cur.rangeStart = kToT(k); }
+  else { k = clamp(k, tToK(cur.rangeStart) + 1, b.max); cur.rangeEnd = kToT(k); }
+  updateRangeLite();
+  if (preview){
+    lastPrevT = previewT(which);
+    const n = performance.now(); if (n - lastPrev > 120){ lastPrev = n; seek(lastPrevT); }
+  }
+}
+function commitRange(seekTo){ save2(); endSession(); if (seekTo != null) seek(seekTo); updateSessionUI(); }
+for (const [id, which] of [['tHS', 's'], ['tHE', 'e']]){
+  const h = $('#' + id);
+  h.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId); drag = which; lastPrevT = previewT(which); h.classList.add('drag'); });
+  h.addEventListener('pointermove', e => { if (drag === which) moveHandle(which, tFromX(e.clientX), true); });
+  const end = () => { if (drag !== which) return; drag = null; h.classList.remove('drag'); commitRange(lastPrevT); };
+  h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end);
+  h.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault(); const d = (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? counts() : 1);
+    moveHandle(which, (which === 's' ? cur.rangeStart : cur.rangeEnd) + d*cur.period, true); commitRange(lastPrevT);
+  });
+}
+$('#tTrack').addEventListener('pointerdown', e => { if (!e.target.closest('.tHead') && duration) seek(tFromX(e.clientX)); });
+$('#zoomBtn').addEventListener('click', () => { if (!hasRange()) return; zoom = !zoom; if (zoom) setZoomView(); updateTrim(); });
+$('#rsNow').addEventListener('click', () => {
+  const t = snap(nowT());
+  cur.rangeStart = t; if (cur.rangeEnd <= t + cur.period/2) cur.rangeEnd = t + 4*blockLen();
+  fixRange(); if (zoom) setZoomView(); updateRangeLite(); commitRange();
+});
+$('#reNow').addEventListener('click', () => {
+  const t = snap(nowT());
+  if (t <= cur.rangeStart + cur.period/2) return;
+  cur.rangeEnd = t; fixRange(); if (zoom) setZoomView(); updateRangeLite(); commitRange();
+});
+document.querySelector('.nudges').addEventListener('click', e => {
+  const b = e.target.closest('[data-tn]'); if (!b || !hasRange()) return;
+  const [w, d] = b.dataset.tn.split(':');
+  moveHandle(w, (w === 's' ? cur.rangeStart : cur.rangeEnd) + (+d)*cur.period, true); if (zoom) setZoomView(); updateTrim(); commitRange(lastPrevT);
+});
+
+/* ---------- practice tab ---------- */
+function stepRow(x, i){
+  return '<div class="srow" data-i="' + i + '"><input type="checkbox" data-f="on"' + (x.on ? ' checked' : '') + ' aria-label="Use this speed">' +
+    '<label class="num"><input type="number" data-f="rate" min="0.25" max="2" step="0.05" value="' + x.rate + '" aria-label="Speed">×</label>' +
+    '<label class="num"><input type="number" data-f="reps" min="1" max="20" step="1" value="' + x.reps + '" aria-label="Repeats">repeats</label>' +
+    '<span class="mv"><button class="ico" data-mv="-1" aria-label="Move up">↑</button><button class="ico" data-mv="1" aria-label="Move down">↓</button><button class="ico" data-rm aria-label="Remove">✕</button></span></div>';
+}
+function renderSteps(){
+  for (const [key, el] of [['blockSteps', $('#planB')], ['connectSteps', $('#planC')], ['fullSteps', $('#planF')]])
+    el.innerHTML = db.settings[key].map(stepRow).join('') || '<p class="muted small" style="margin:0">No speeds yet. Add one below.</p>';
+  const s = db.settings;
+  $('#optFullAfter').checked = s.fullAfter; $('#optAuto').checked = s.auto; $('#optConnectOn').checked = s.connectOn;
+  $('#optMusicB').checked = s.musicBlocks; $('#optMusicF').checked = s.musicFull;
+  $('#optCounts').value = s.counts; $('#optGroup').value = s.group; $('#optRest').value = s.rest;
+  $('#optLeadS').value = s.leadStart; $('#optLeadR').value = s.leadRepeat;
+}
+function planChanged(){ endSession(); if (hasRange()){ updateRangeLite(); } updateSessionUI(); }
+function renderChips(){
+  if (!hasRange()) return;
+  const bl = blocks(), G = groupSize(), st = db.settings;
+  let h = '';
+  for (let g = 0; g * G < bl.length; g++){
+    const grp = bl.slice(g * G, (g + 1) * G), a = grp[0].n, b = grp[grp.length - 1].n;
+    h += '<div class="cgrp"><div class="cl">' + (grp.length > 1 ? 'Blocks ' + a + '–' + b : 'Block ' + a) + '</div><div class="chips">' +
+      grp.map(x => '<button class="chip" data-n="' + x.n + '"><b>' + x.n + '</b><span>' + Math.round((x.e-x.s)/cur.period) + ' counts</span></button>').join('') +
+      (st.connectOn && grp.length > 1 ? '<button class="chip conn" data-c="' + g + '"><b>▶ ' + a + '–' + b + '</b><span>together</span></button>' : '') +
+      '</div></div>';
+  }
+  $('#chips').innerHTML = h;
+  markPlaying();
+}
+function markPlaying(){
+  const sp = currentSpan();
+  document.querySelectorAll('.chip[data-n]').forEach(c => c.classList.toggle('playing', !!sp && +c.dataset.n >= sp[0] && +c.dataset.n <= sp[1]));
+}
+function updateSessionUI(){
+  if (!hasRange()) return;
+  const nb = blocks().length, s = sess;
+  let title, sub, main, frac = 0;
+  if (!s){
+    title = 'Ready when you are';
+    const g = groupSize(), cfg = db.settings;
+    sub = nb + ' block' + (nb > 1 ? 's' : '') + ': ' + ladderText('blockSteps') +
+      (cfg.connectOn && nb > 1 ? '. Every ' + g + ' blocks, together: ' + ladderText('connectSteps') : '') +
+      (cfg.fullAfter ? '. Then the whole section: ' + ladderText('fullSteps') : '');
+    main = 'Start practice';
+  } else if (s.done){ title = 'Range complete 🎉'; sub = 'Nice work. Start again, or run the whole section.'; main = 'Start again'; frac = 1; }
+  else if (s.waiting){
+    const prev = s.plan[s.i - 1], nx = s.plan[s.i], cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+    title = cap(stepLabel(prev)) + ' done'; sub = 'Ready for ' + stepLabel(nx) + '?';
+    main = nx.kind === 'block' ? 'Start block ' + nx.block : nx.kind === 'connect' ? 'Connect blocks ' + nx.a + '–' + nx.b : 'Run whole section';
+    frac = s.i / s.plan.length;
+  } else {
+    const st = s.plan[s.i];
+    title = st.kind === 'full' ? 'Whole section' : st.kind === 'connect' ? 'Blocks ' + st.a + '–' + st.b + ' together' : 'Block ' + st.block + ' of ' + nb;
+    sub = s.resting ? 'Pause. Tap Skip to go now.' : rateLbl(st.rate) + ' · ' + (st.kind === 'block' ? 'rep ' : 'run ') + (s.rep + 1) + ' of ' + st.reps;
+    main = s.resting ? 'Skip pause' : playing ? 'Pause' : 'Resume';
+    frac = (s.i + s.rep/st.reps) / s.plan.length;
+  }
+  $('#sTitle').textContent = title; $('#sSub').textContent = sub; $('#sMain').textContent = main;
+  $('#sProg').style.width = Math.round(frac*100) + '%';
+  const cb = currentBlockNum(), inBlocks = !!s && s.mode === 'blocks';
+  $('#sPrev').disabled = !inBlocks || (cb === 0 ? !enabled('blockSteps').length : cb <= 1);
+  $('#sNext').disabled = !inBlocks || cb < 1 || cb >= nb;
+  $('#sRestart').disabled = !s || s.done;
+  $('#mSub').textContent = s && !s.done ? title + ' · ' + sub : title;
+  $('#mMain').textContent = main;
+  $('#mPrev').disabled = $('#sPrev').disabled; $('#mNext').disabled = $('#sNext').disabled;
+  const lock = !!s && !s.done && !s.waiting;
+  document.querySelectorAll('#rateSeg button').forEach(b => b.disabled = lock);
+  markPlaying();
+}
+function updatePracticeUI(){
+  const ok = hasGrid() && !!duration;
+  $('#pMsg').hidden = ok; $('#pBody').hidden = !ok;
+  if (!ok){ $('#pMsg').textContent = hasGrid() ? 'Loading the video length…' : 'Set the beat first. Tap along on the Beats tab, then come back here.'; return; }
+  fixRange();
+  updateRangeUI(); updateSessionUI();
+}
+function refreshAll(){ fixRange(); updateBeatsUI(); if (tab === 'practice') updatePracticeUI(); }
+
+/* ---------- home ---------- */
+function renderHome(){
+  const ids = Object.keys(db.videos).sort((a,b) => db.videos[b].updated - db.videos[a].updated);
+  $('#recentCard').hidden = !ids.length;
+  $('#recent').innerHTML = ids.map(id => {
+    const v = db.videos[id];
+    return '<li><button class="open" data-id="' + id + '"><span class="t">' + esc(v.title || id) + '</span><span class="muted small">' +
+      (v.period ? (60/v.period).toFixed(0) + ' BPM' + (v.rangeStart != null ? ' · range chosen' : '') : 'beat not set yet') + '</span></button>' +
+      '<button class="ghost" data-del="' + id + '" aria-label="Remove this cover">✕</button></li>';
+  }).join('');
+}
+
+/* ---------- views & controls ---------- */
+function showView(v){
+  if (v === 'home' && fsOn){ if (fsReal && document.fullscreenElement) document.exitFullscreen(); fsPseudo = false; fsReal = false; setFs(false); }
+  $('#viewHome').hidden = v !== 'home'; $('#viewPlayer').hidden = v !== 'player';
+  $('#backBtn').hidden = v === 'home';
+  document.body.classList.toggle('pm', v === 'player');
+  if (v === 'home'){ endSession(); $('#heading').textContent = 'Run It Back'; renderHome(); if (player && player.pauseVideo && ready) player.pauseVideo(); }
+  else requestAnimationFrame(layoutVideo);
+}
+function setTab(t){
+  tab = t;
+  $('#tabBeats').setAttribute('aria-selected', t === 'beats'); $('#tabPractice').setAttribute('aria-selected', t === 'practice');
+  $('#panelBeats').hidden = t !== 'beats'; $('#panelPractice').hidden = t !== 'practice';
+  if (t === 'practice') updatePracticeUI(); else updateBeatsUI();
+}
+function syncControls(){
+  document.querySelectorAll('#rateSeg button').forEach(b => b.setAttribute('aria-pressed', Math.abs(+b.dataset.r - rate) < 1e-6));
+  $('#mirrorBtn').setAttribute('aria-pressed', db.settings.mirror); $('#playerWrap').classList.toggle('mirror', db.settings.mirror);
+  $('#muteBtn').textContent = soundOff ? '🔇' : '🔊'; $('#muteBtn').setAttribute('aria-pressed', soundOff);
+  $('#fsBtn').textContent = fsOn ? '✕' : '⛶'; $('#fsBtn').setAttribute('aria-label', fsOn ? 'Exit full screen' : 'Full screen');
+}
+
+/* ---------- events ---------- */
+$('#loadForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = parseId($('#urlInput').value);
+  const err = $('#homeErr');
+  if (!id){ err.hidden = false; err.textContent = "That doesn't look like a YouTube link. Copy the address from the video page."; return; }
+  err.hidden = true; $('#urlInput').value = ''; openVideo(id);
+});
+$('#recent').addEventListener('click', e => {
+  const o = e.target.closest('[data-id]'), d = e.target.closest('[data-del]');
+  if (o) openVideo(o.dataset.id);
+  if (d && confirm('Remove this cover and its saved beat and range?')){ delete db.videos[d.dataset.del]; save(); renderHome(); }
+});
+$('#backBtn').addEventListener('click', () => showView('home'));
+
+$('#playBtn').addEventListener('click', togglePlay);
+$('#muteBtn').addEventListener('click', toggleMute);
+$('#fsBtn').addEventListener('click', toggleFs);
+$('#rateSeg').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b && !b.disabled) setRate(+b.dataset.r); });
+$('#mirrorBtn').addEventListener('click', () => setMirror(!db.settings.mirror));
+$('#tabBeats').addEventListener('click', () => setTab('beats'));
+$('#tabPractice').addEventListener('click', () => setTab('practice'));
+$('#toPractice').addEventListener('click', () => setTab('practice'));
+const scrub = $('#scrub');
+scrub.addEventListener('input', () => { dragging = true; $('#timeLbl').textContent = fmt(scrub.value/1000*duration) + ' / ' + fmt(duration); });
+scrub.addEventListener('change', () => { seek(scrub.value/1000*duration); dragging = false; });
+
+$('#tapBtn').addEventListener('pointerdown', e => { e.preventDefault(); tap(); });
+$('#tapBtn').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+$('#resetTaps').addEventListener('click', () => { taps = []; updateBeatsUI(); });
+$('#panelBeats').addEventListener('click', e => {
+  const n = e.target.closest('[data-nudge]'), b = e.target.closest('[data-bpm]');
+  if (!hasGrid()) return;
+  if (n){ const d = +n.dataset.nudge; cur.anchor += d; if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; } }
+  if (b){ rebase(); cur.period = 60/(60/cur.period + +b.dataset.bpm); }
+  if (e.target.id === 'halfBtn'){ rebase(); cur.period *= 2; }
+  if (e.target.id === 'dblBtn'){ rebase(); cur.period /= 2; }
+  if (n || b || e.target.id === 'halfBtn' || e.target.id === 'dblBtn'){ sess = null; fixRange(); save2(); refreshAll(); lastCountKey = ''; }
+});
+
+/* plan editors: speeds, repeats, order, add and remove */
+function stepEdit(e){
+  const box = e.target.closest('[data-list]'), row = e.target.closest('.srow'), f = e.target.dataset.f;
+  if (!box || !row || !f) return;
+  const item = db.settings[box.dataset.list][+row.dataset.i];
+  if (f === 'on') item.on = e.target.checked;
+  if (f === 'rate'){ item.rate = clamp(Math.round((+e.target.value || 1)*100)/100, 0.25, 2); e.target.value = item.rate; }
+  if (f === 'reps'){ item.reps = clamp(Math.round(+e.target.value) || 1, 1, 20); e.target.value = item.reps; }
+  save(); planChanged();
+}
+$('#panelPractice').addEventListener('change', stepEdit);
+$('#panelPractice').addEventListener('click', e => {
+  const add = e.target.closest('[data-add]');
+  if (add){ db.settings[add.dataset.add].push({rate:1, on:true, reps:3}); save(); renderSteps(); return planChanged(); }
+  const box = e.target.closest('[data-list]'), row = e.target.closest('.srow');
+  if (!box || !row) return;
+  const L = db.settings[box.dataset.list], i = +row.dataset.i, mv = e.target.closest('[data-mv]');
+  if (e.target.closest('[data-rm]')) L.splice(i, 1);
+  else if (mv){ const j = i + +mv.dataset.mv; if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; }
+  else return;
+  save(); renderSteps(); planChanged();
+});
+const flag = (id, key) => $(id).addEventListener('change', e => { db.settings[key] = e.target.checked; save(); planChanged(); });
+flag('#optFullAfter', 'fullAfter'); flag('#optAuto', 'auto'); flag('#optMusicB', 'musicBlocks'); flag('#optMusicF', 'musicFull'); flag('#optConnectOn', 'connectOn');
+const num = (id, key, lo, hi, def) => $(id).addEventListener('change', e => {
+  const v = +e.target.value; db.settings[key] = clamp(Number.isFinite(v) ? (key === 'rest' ? Math.round(v*2)/2 : Math.round(v)) : def, lo, hi);
+  e.target.value = db.settings[key]; save(); planChanged();
+});
+num('#optCounts', 'counts', 2, 16, 8); num('#optGroup', 'group', 2, 8, 4); num('#optRest', 'rest', 0, 10, 2);
+num('#optLeadS', 'leadStart', 0, 8, 4); num('#optLeadR', 'leadRepeat', 0, 8, 2);
+$('#resetPlan').addEventListener('click', () => { Object.assign(db.settings, defPlan()); save(); renderSteps(); planChanged(); });
+
+/* session controls */
+$('#sMain').addEventListener('click', sessMain);
+$('#mMain').addEventListener('click', sessMain);
+for (const [a, b] of [['#sPrev', '#mPrev'], ['#sNext', '#mNext']]){
+  const d = a === '#sPrev' ? -1 : 1;
+  for (const id of [a, b]) $(id).addEventListener('click', () => {
+    const c = currentBlockNum(), sp = currentSpan();
+    gotoBlock(c ? c + d : sp ? (d < 0 ? sp[0] : sp[1] + 1) : blocks().length);   // from a connected or whole-section run, go back to its first block
+  });
+}
+$('#sRestart').addEventListener('click', restartPart);
+$('#sFull').addEventListener('click', startFull);
+$('#chips').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  if (c.dataset.c != null) gotoConnect(+c.dataset.c); else gotoBlock(+c.dataset.n);
+});
+
+document.addEventListener('keydown', e => {
+  if (!cur || $('#viewPlayer').hidden || /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return;
+  const k = e.key.toLowerCase();
+  if (k === ' '){ e.preventDefault(); togglePlay(); }
+  else if (k === 't'){ tap(); }
+  else if (k === 'm'){ setMirror(!db.settings.mirror); }
+  else if (k === 'f'){ toggleFs(); }
+  else if (k === 'escape' && fsOn && fsPseudo){ toggleFs(); }
+  else if (k === 'arrowleft' || k === 'arrowright'){
+    if (document.activeElement.classList && document.activeElement.classList.contains('tHead')) return;
+    e.preventDefault(); const step = hasGrid() ? cur.period : 2; seek(nowT() + (k === 'arrowleft' ? -step : step));
+  }
+});
+
+/* ---------- init ---------- */
+$('#cSegs').innerHTML = '<i class="one"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>';
+renderSteps(); syncControls(); renderHome(); requestAnimationFrame(tick);
+window.__cl = {fitBeats, parseId, getPlayer: () => player};
+})();
+</script>
+</body>
+</html>
