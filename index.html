@@ -92,24 +92,45 @@ input[type=range]{accent-color:var(--accent)}
 .miniSess{display:none;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
 .miniSess .ms{flex:1;min-width:120px;font-size:13px}
 
-.fsBar{display:none}
+/* full screen: the video fills the screen. Controls are one slim row that fades out while playing; speed, mirror and the
+   practice buttons sit behind the ⋯ button, and the count is a small chip in the corner that stays visible. */
+.fsBar,.fsCount,#moreBtn{display:none}
 .stage.fs{position:relative;width:100%;height:100%;max-height:none;aspect-ratio:auto;border-radius:0;margin:0}
-.stage.fs.pseudo{position:fixed;inset:0;z-index:100;width:100vw;height:100vh;height:100dvh}
-.stage.fs .fsBar{display:block;position:absolute;left:0;right:0;bottom:0;z-index:5;padding:28px 18px calc(12px + env(safe-area-inset-bottom));
-  background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,0));color:#fff;transition:opacity .25s;
-  --text:#fff;--muted:#d3d7e0;--panel2:rgba(255,255,255,.16);--line:rgba(255,255,255,.28)}
+.stage.fs.pseudo{position:fixed;inset:0;z-index:100;width:auto;height:auto}
+.stage.fs .fsBar{display:block;position:absolute;left:0;right:0;bottom:0;z-index:5;
+  padding:14px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;transition:opacity .25s;
+  --text:#fff;--muted:#d3d7e0;--panel2:rgba(255,255,255,.18);--line:rgba(255,255,255,.3)}
 .stage.fs.idle .fsBar{opacity:0;pointer-events:none}
 .stage.fs.idle{cursor:none}
+.stage.fs #ctlMain .bar{margin-top:0}
+.stage.fs #moreBtn{display:inline-flex;align-items:center;justify-content:center}
+.stage.fs #ctlOpts{display:none;margin-top:0;margin-bottom:8px}
+.stage.fs.more #ctlOpts{display:flex}
 .stage.fs .miniSess{display:flex}
-.stage.fs #ctlOpts{margin-top:8px}
-.stage.fs .count .num{font-size:30px}
+.stage.fs .fsCount{display:block;position:absolute;z-index:5;top:calc(8px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
+  max-width:60%;text-align:right;color:#fff;background:rgba(0,0,0,.42);border-radius:12px;padding:4px 12px;
+  --text:#fff;--muted:#e3e6ee;--panel2:rgba(255,255,255,.2);--line:rgba(255,255,255,.3)}
+.stage.fs .fsCount .count{margin:0;gap:8px;justify-content:flex-end}
+.stage.fs .fsCount .count .num{font-size:30px;width:auto;min-width:28px}
+.stage.fs .fsCount .count .segs{display:none}
+.stage.fs .fsCount .count .lbl{min-width:0}
+.fsStat{font-size:11px;opacity:.9;line-height:1.2}
+.stage.fs.ad .fsBar{top:0;bottom:auto;padding:8px calc(12px + env(safe-area-inset-right)) 14px calc(12px + env(safe-area-inset-left));background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,0))}
+/* a clear layer over the video: tapping the picture (including YouTube's own big play button) plays or pauses */
+.shield{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.stage.ad .shield{display:none}
+.stage.ad #playerWrap{pointer-events:auto;transform:none}
+.stage.ad .mask{display:none}
+.adNote{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.35}
+.stage.fs .adNote{color:#fff}
 
 .tabs{display:flex;gap:6px;margin-top:14px}
 .tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:42px;font-weight:600}
 .tabs button[aria-selected=true]{background:var(--text);color:var(--bg);border-color:var(--text)}
 
 /* beats */
-.tap{width:100%;min-height:88px;font-size:22px;font-weight:700;border-radius:16px;border:2px solid var(--accent);background:var(--panel2);touch-action:manipulation}
+.tap{width:100%;min-height:110px;font-size:22px;font-weight:700;border-radius:16px;border:2px solid var(--accent);background:var(--panel2);touch-action:manipulation}
 .tap:active,.tap.hit{background:var(--accent);color:var(--accent-ink)}
 .bpm{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
 ol.steps{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
@@ -155,6 +176,7 @@ ol.steps li{margin:2px 0}
 </style>
 </head>
 <body>
+<div id="safeProbe" aria-hidden="true" style="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"></div>
 <div class="app">
   <header class="top">
     <button id="backBtn" class="ghost" hidden aria-label="Back to my covers">←</button>
@@ -196,14 +218,17 @@ ol.steps li{margin:2px 0}
         <div class="stage mirrorHost" id="stage">
           <div id="playerWrap" class="mirror"><div id="player"></div></div>
           <div class="mask" id="maskT"></div><div class="mask" id="maskB"></div>
+          <div class="shield" id="shield" aria-hidden="true"></div>
           <div id="stageMsg" class="stageMsg" hidden></div>
           <div class="cue" id="cue" hidden aria-hidden="true"></div>
+          <div class="fsCount" id="fsCount"><div class="fsStat" id="fsStat"></div></div>
           <div class="fsBar" id="fsBar"></div>
         </div>
 
         <div id="ctlMainHome">
           <div id="ctlMain">
-            <div class="count" aria-live="off">
+            <div class="adNote" id="adNote" hidden></div>
+            <div class="count" id="countRow" aria-live="off">
               <div class="num" id="cNum">–</div>
               <div class="segs" id="cSegs"></div>
               <div class="lbl" id="cLbl">no beat yet</div>
@@ -213,6 +238,7 @@ ol.steps li{margin:2px 0}
               <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
               <span class="time" id="timeLbl">0:00</span>
               <button id="muteBtn" class="btn sm" aria-label="Mute or unmute" style="min-width:42px">🔊</button>
+              <button id="moreBtn" class="btn sm" aria-label="More controls" aria-pressed="false" style="min-width:42px">⋯</button>
               <button id="fsBtn" class="btn sm" aria-label="Full screen" style="min-width:42px">⛶</button>
             </div>
           </div>
@@ -226,6 +252,7 @@ ol.steps li{margin:2px 0}
               <button data-r="0.25">.25×</button><button data-r="0.5">.5×</button><button data-r="0.75">.75×</button><button data-r="1">1×</button>
             </div>
             <button id="mirrorBtn" class="btn sm" aria-pressed="true">Mirror</button>
+            <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press Skip">Ad?</button>
             <div class="miniSess" id="miniSess">
               <span class="ms" id="mSub"></span>
               <button id="mPrev" class="btn sm" aria-label="Previous block">◀</button>
@@ -244,7 +271,8 @@ ol.steps li{margin:2px 0}
         <div id="panelBeats">
           <div class="card">
             <ol class="steps">
-              <li>Play the song and tap on every beat, about 16 taps. Then skip to near the end and tap 8 more. That keeps the count from drifting.</li>
+              <li><b>Tap it.</b> Play the song (it starts at half speed, which makes tapping easier) and tap on each beat, about 16 taps. Then skip near the end and tap 8 more, so the count doesn't drift.</li>
+              <li><b>Or type it.</b> If you know the BPM, type it in. Then play, and press <b>A beat is right here</b> on any clear beat, like a kick or snare.</li>
               <li>Watch the count under the video. If it feels early or late, nudge it.</li>
               <li>Then trim what to learn. The count starts from your chosen start point.</li>
             </ol>
@@ -255,6 +283,12 @@ ol.steps li{margin:2px 0}
               <button id="resetTaps" class="btn sm">Reset taps</button>
             </div>
             <button id="tapBtn" class="tap" style="margin-top:12px">TAP THE BEAT <span id="tapN" class="small muted"></span></button>
+            <div class="row" style="margin-top:12px">
+              <button id="undoTap" class="btn sm">Undo last tap</button>
+              <label class="small muted row" style="gap:6px">or type the BPM <input id="bpmIn" type="number" min="40" max="300" step="0.1" placeholder="120" inputmode="decimal"></label>
+              <button id="bpmSet" class="btn sm">Set</button>
+              <button id="syncHere" class="btn sm" disabled>A beat is right here</button>
+            </div>
             <div class="row" style="margin-top:12px">
               <button id="toPractice" class="btn primary" disabled>Next: trim what to learn →</button>
             </div>
@@ -398,6 +432,7 @@ let lastCountKey = '';
 let userMuted = !!db.settings.muted, soundOff = userMuted;
 let zoom = false, zoomView = null, drag = null, lastPrev = 0, lastPrevT = 0;
 let fsOn = false, fsPseudo = false, fsReal = false, idleTimer = 0;
+let adManual = false, adDetected = false, lastFit = null;
 
 /* ---------- helpers ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -441,7 +476,9 @@ function fitBeats(ts){
     const f = lsq(pts); if (f && f.b > 0.1){ a = f.a; b = f.b; }
   }
   const f = lsq(pts);
-  return f && f.b > 0.1 ? {period:f.b, phase:f.a} : null;
+  if (!(f && f.b > 0.1)) return null;
+  let se = 0; for (const [p, x] of pts){ const r = x - (f.a + f.b*p); se += r*r; }
+  return {period:f.b, phase:f.a, rms:Math.sqrt(se/pts.length)};   // rms: how far the taps strayed from a steady beat, in seconds
 }
 
 /* ---------- beat grid and range ---------- */
@@ -504,16 +541,20 @@ const D = 96;
 function layoutVideo(){
   const st = $('#stage'), W = st.clientWidth, H = st.clientHeight;
   if (!W || !H) return;
-  const vh = Math.min(H, W*9/16), vw = vh*16/9, w = $('#playerWrap');
+  // in full screen keep the video inside the safe area, so a phone's notch or home bar doesn't push it off-centre
+  let L = 0, R = 0, T = 0, B = 0;
+  if (fsOn){ const cs = getComputedStyle($('#safeProbe')); L = parseFloat(cs.paddingLeft) || 0; R = parseFloat(cs.paddingRight) || 0; T = parseFloat(cs.paddingTop) || 0; B = parseFloat(cs.paddingBottom) || 0; }
+  const aw = W - L - R, ah = H - T - B, vh = Math.min(ah, aw*9/16), vw = vh*16/9, w = $('#playerWrap');
   w.style.width = vw + 'px'; w.style.height = (vh + 2*D) + 'px';
-  w.style.left = ((W - vw)/2) + 'px'; w.style.top = ((H - vh)/2 - D) + 'px';
-  $('#maskT').style.height = $('#maskB').style.height = Math.max(0, (H - vh)/2) + 'px';
+  w.style.left = (L + (aw - vw)/2) + 'px'; w.style.top = (T + (ah - vh)/2 - D) + 'px';
+  $('#maskT').style.height = Math.max(0, T + (ah - vh)/2) + 'px'; $('#maskB').style.height = Math.max(0, B + (ah - vh)/2) + 'px';
 }
 new ResizeObserver(layoutVideo).observe($('#stage'));
 
 async function openVideo(id){
   cur = db.videos[id] || (db.videos[id] = {id, title:'', period:0, anchor:null, rangeStart:null, rangeEnd:null, updated:Date.now()});
-  taps = []; sess = null; ready = false; duration = 0; lastRaw = -1; lastCountKey = ''; zoom = false;
+  taps = []; sess = null; ready = false; duration = cur.dur || 0; lastRaw = -1; lastCountKey = ''; zoom = false;
+  adManual = false; adDetected = false; setMore(false);
   setRate(1);
   showView('player'); stageMsg('Loading video…');
   setTab(hasGrid() ? 'practice' : 'beats');
@@ -527,20 +568,26 @@ async function openVideo(id){
   });
 }
 function captionsOff(){ try { player.unloadModule('captions'); player.unloadModule('cc'); } catch {} }
-function onReady(){ ready = true; stageMsg(''); player.setPlaybackRate(rate); captionsOff(); applyPhaseMute(); onLoaded(); layoutVideo(); }
-function onLoaded(){
-  if (!player.getVideoData) return;
+function onReady(){ ready = true; stageMsg(''); player.setPlaybackRate(rate); captionsOff(); applyPhaseMute(); onLoaded(false); layoutVideo(); }
+/* The video's title and length are read only while it is cued, before anything plays. Once it plays, an ad can report its own
+   length, and that must never replace the real one, because the trimmed range is clamped to it. The length is also remembered. */
+function acceptDuration(d, force){
+  if (!d || (duration && !force) || d === duration) return;
+  duration = d; if (cur){ cur.dur = d; save(); }
+  refreshAll();
+}
+function onLoaded(force){
+  if (!player.getVideoData || playing) return;
   const vd = player.getVideoData();
   if (vd && vd.title && cur){ cur.title = vd.title; save(); $('#heading').textContent = vd.title; }
-  const d = player.getDuration() || 0;
-  if (d && d !== duration){ duration = d; refreshAll(); }
+  acceptDuration(player.getDuration() || 0, force);
 }
 function onState(e){
   ready = true;
   playing = e.data === 1;
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
-  if (e.data === 5) onLoaded();
-  if (e.data === 1){ stageMsg(''); onLoaded(); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
+  if (e.data === 5) onLoaded(true);
+  if (e.data === 1){ stageMsg(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
   if (e.data === 0 && sess && !sess.done && !sess.waiting && !sess.resting) segmentEnd();
   lastRaw = -1;
   updateSessionUI(); bumpControls();
@@ -592,11 +639,17 @@ function setFs(on){
   const st = $('#stage');
   st.classList.toggle('fs', on); st.classList.toggle('pseudo', on && fsPseudo);
   document.body.classList.toggle('noscroll', on && fsPseudo);
-  if (on){ $('#fsBar').append($('#ctlMain'), $('#ctlOpts')); }
-  else { $('#ctlMainHome').append($('#ctlMain')); $('#ctlOptsHome').append($('#ctlOpts')); st.classList.remove('idle'); clearTimeout(idleTimer); }
+  if (on){ $('#fsBar').append($('#ctlMain'), $('#ctlOpts')); $('#fsCount').prepend($('#countRow')); }
+  else {
+    $('#ctlMainHome').append($('#ctlMain')); $('#ctlOptsHome').append($('#ctlOpts'));
+    $('#ctlMain').insertBefore($('#countRow'), $('#ctlMain .bar'));
+    st.classList.remove('idle'); setMore(false); clearTimeout(idleTimer);
+  }
   syncControls(); requestAnimationFrame(layoutVideo); setTimeout(layoutVideo, 150);
   if (on) bumpControls();
 }
+/* the ⋯ button in full screen shows or hides speed, mirror and the practice buttons */
+function setMore(on){ $('#stage').classList.toggle('more', on); $('#moreBtn').setAttribute('aria-pressed', on); }
 async function toggleFs(){
   const st = $('#stage');
   if (fsOn){
@@ -742,8 +795,21 @@ function sessMain(){
 function tick(){
   requestAnimationFrame(tick);
   if (!cur || $('#viewPlayer').hidden) return;
-  if (!duration && ready && player.getDuration){ const d = player.getDuration() || 0; if (d){ duration = d; refreshAll(); } }
+  if (!duration && ready && !playing && player.getDuration) acceptDuration(player.getDuration() || 0, false);
   const t = nowT();
+
+  // An ad is playing when the player reports a different length than the video's own. Practice waits, and the video is
+  // unlocked so you can press the ad's own Skip button.
+  const dNow = ready && playing && duration && player.getDuration ? player.getDuration() : 0;
+  const wasAd = adDetected;
+  adDetected = dNow > 0 && Math.abs(dNow - duration) > 1.5;
+  const adOn = adDetected || adManual;
+  $('#stage').classList.toggle('ad', adOn);
+  const note = $('#adNote'),
+    msg = adDetected ? 'An ad is playing. Tap the video to use its Skip button when it appears. Your practice waits until the ad ends.'
+        : adManual ? 'The video is unlocked, so you can tap it. Press Ad? again to lock it.' : '';
+  if (note.textContent !== msg){ note.textContent = msg; note.hidden = !msg; }
+  if (wasAd && !adDetected && sess && !sess.done && !sess.waiting && !sess.resting) startRep(0);   // the ad ended: restart this run properly
   if (!dragging && duration) $('#scrub').value = Math.round(t/duration*1000);
   $('#timeLbl').textContent = fmt(t) + ' / ' + fmt(duration);
   if (!$('#pBody').hidden && duration && hasRange()){
@@ -752,18 +818,18 @@ function tick(){
   }
 
   // during a count-in, show the count-in numbers (5, 6, 7, 8), whether they come from before the part or from its tail
-  const running = !!sess && !sess.done && !sess.waiting && !sess.resting && playing;
+  const running = !!sess && !sess.done && !sess.waiting && !sess.resting && playing && !adDetected;
   let leadNum = 0;
   if (running && sess.leadN > 0 && (sess.pre || t < sess.plan[sess.i].s - cur.period*0.25)){
     const idx = Math.floor((t - sess.from)/cur.period + 0.15);
     if (idx >= 0 && idx < sess.leadN) leadNum = ((counts() - sess.leadN + idx) % counts() + counts()) % counts() + 1;
   }
-  const w = leadNum ? {count:leadNum, block:0, lead:true} : whereIs(t);
-  const key = w ? (w.out || w.block + ':' + w.count) : '-';
+  const w = adDetected ? null : leadNum ? {count:leadNum, block:0, lead:true} : whereIs(t);
+  const key = adDetected ? 'ad' : w ? (w.out || w.block + ':' + w.count) : '-';
   if (key !== lastCountKey){
     lastCountKey = key;
     $('#cNum').textContent = w && !w.out ? w.count : '–';
-    $('#cLbl').textContent = !w ? 'no beat yet' : w.out ? w.out : w.lead ? 'count-in' : 'Block ' + w.block;
+    $('#cLbl').textContent = adDetected ? 'ad playing' : !w ? 'no beat yet' : w.out ? w.out : w.lead ? 'count-in' : 'Block ' + w.block;
     [...$('#cSegs').children].forEach((el,i) => el.classList.toggle('on', !!w && !w.out && i + 1 === w.count));
   }
 
@@ -780,21 +846,46 @@ function tick(){
 }
 
 /* ---------- beats tab ---------- */
-function tap(){
-  if (!ready || !cur) return;
-  taps.push(nowT());
-  const f = fitBeats(taps);
-  if (f){ cur.period = f.period; cur.anchor = f.phase; sess = null; fixRange(); save2(); refreshAll(); }
-  const b = $('#tapBtn'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90);
+function applyTaps(){
+  lastFit = fitBeats(taps);
+  if (lastFit){ cur.period = lastFit.period; cur.anchor = lastFit.phase; sess = null; fixRange(); save2(); refreshAll(); }
   updateBeatsUI();
 }
+function tap(){
+  if (!ready || !cur || adDetected) return;
+  taps.push(nowT());
+  applyTaps();
+  if (navigator.vibrate) navigator.vibrate(8);
+  const b = $('#tapBtn'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90);
+}
+function undoTap(){ if (!taps.length) return; taps.pop(); if (taps.length >= 4) applyTaps(); else { lastFit = null; updateBeatsUI(); } }
 function rebase(){ if (hasRange()) cur.anchor = cur.rangeStart; }
+/* Type the BPM instead of tapping it. With no beat yet, the current position counts as a beat until you press "A beat is right here". */
+function applyBpm(v){
+  if (!cur || !(v >= 40 && v <= 300)) return;
+  if (hasGrid()){ rebase(); cur.period = 60/v; } else { cur.period = 60/v; cur.anchor = nowT(); }
+  sess = null; lastFit = null; fixRange(); save2(); refreshAll(); lastCountKey = '';
+}
+/* Slide the beat grid so a beat lands exactly on the playhead. Play at half speed and press it on a clear kick or snare. */
+function syncHere(){
+  if (!hasGrid()) return;
+  const t = nowT(), d = t - snap(t);
+  cur.anchor += d; if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; }
+  sess = null; save2(); refreshAll(); lastCountKey = '';
+}
 function updateBeatsUI(){
   const g = hasGrid();
   $('#bpmLbl').textContent = g ? (60/cur.period).toFixed(1) + ' BPM' : '–';
-  $('#bpmSub').textContent = g ? 'Counting every ' + (cur.period*1000).toFixed(0) + ' ms' : (taps.length ? taps.length + ' taps so far, need 4' : 'Not set yet');
+  let sub = g ? 'Counting every ' + (cur.period*1000).toFixed(0) + ' ms' : (taps.length ? taps.length + ' taps so far, need 4' : 'Not set yet');
+  if (g && lastFit && taps.length >= 8){
+    const ms = lastFit.rms*1000;
+    sub += ms < 25 ? ' · steady taps' : ms < 45 ? ' · taps a little uneven' : ' · taps uneven. Try half speed, or type the BPM';
+  }
+  $('#bpmSub').textContent = sub;
   $('#tapN').textContent = taps.length ? '(' + taps.length + ')' : '';
   $('#toPractice').disabled = !g;
+  $('#syncHere').disabled = !g; $('#undoTap').disabled = !taps.length;
+  if (document.activeElement !== $('#bpmIn')) $('#bpmIn').value = g ? (60/cur.period).toFixed(1) : '';
   document.querySelectorAll('[data-nudge],[data-bpm],#halfBtn,#dblBtn').forEach(b => b.disabled = !g);
 }
 
@@ -934,6 +1025,7 @@ function updateSessionUI(){
   $('#sNext').disabled = !inBlocks || cb < 1 || cb >= nb;
   $('#sRestart').disabled = !s || s.done;
   $('#mSub').textContent = s && !s.done ? title + ' · ' + sub : title;
+  $('#fsStat').textContent = s && !s.done ? title + ' · ' + sub : '';
   $('#mMain').textContent = main;
   $('#mPrev').disabled = $('#sPrev').disabled; $('#mNext').disabled = $('#sNext').disabled;
   const lock = !!s && !s.done && !s.waiting;
@@ -974,9 +1066,11 @@ function setTab(t){
   tab = t;
   $('#tabBeats').setAttribute('aria-selected', t === 'beats'); $('#tabPractice').setAttribute('aria-selected', t === 'practice');
   $('#panelBeats').hidden = t !== 'beats'; $('#panelPractice').hidden = t !== 'practice';
+  if (t === 'beats' && !hasGrid() && rate === 1) setRate(0.5);   // half speed makes tapping the beat easier
   if (t === 'practice') updatePracticeUI(); else updateBeatsUI();
 }
 function syncControls(){
+  $('#adBtn').setAttribute('aria-pressed', adManual);
   document.querySelectorAll('#rateSeg button').forEach(b => b.setAttribute('aria-pressed', Math.abs(+b.dataset.r - rate) < 1e-6));
   $('#mirrorBtn').setAttribute('aria-pressed', db.settings.mirror); $('#playerWrap').classList.toggle('mirror', db.settings.mirror);
   $('#muteBtn').textContent = soundOff ? '🔇' : '🔊'; $('#muteBtn').setAttribute('aria-pressed', soundOff);
@@ -999,6 +1093,8 @@ $('#recent').addEventListener('click', e => {
 $('#backBtn').addEventListener('click', () => showView('home'));
 
 $('#playBtn').addEventListener('click', togglePlay);
+// tapping the video: if practice is waiting for you or pausing between runs, carry on with it; otherwise play or pause
+$('#shield').addEventListener('click', () => { if (sess && (sess.waiting || sess.resting)) sessMain(); else togglePlay(); });
 $('#muteBtn').addEventListener('click', toggleMute);
 $('#fsBtn').addEventListener('click', toggleFs);
 $('#rateSeg').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b && !b.disabled) setRate(+b.dataset.r); });
@@ -1012,7 +1108,13 @@ scrub.addEventListener('change', () => { seek(scrub.value/1000*duration); draggi
 
 $('#tapBtn').addEventListener('pointerdown', e => { e.preventDefault(); tap(); });
 $('#tapBtn').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
-$('#resetTaps').addEventListener('click', () => { taps = []; updateBeatsUI(); });
+$('#resetTaps').addEventListener('click', () => { taps = []; lastFit = null; updateBeatsUI(); });
+$('#undoTap').addEventListener('click', undoTap);
+$('#bpmSet').addEventListener('click', () => applyBpm(+$('#bpmIn').value));
+$('#bpmIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); applyBpm(+$('#bpmIn').value); } });
+$('#syncHere').addEventListener('click', syncHere);
+$('#adBtn').addEventListener('click', () => { adManual = !adManual; syncControls(); });
+$('#moreBtn').addEventListener('click', () => { setMore(!$('#stage').classList.contains('more')); bumpControls(); });
 $('#panelBeats').addEventListener('click', e => {
   const n = e.target.closest('[data-nudge]'), b = e.target.closest('[data-bpm]');
   if (!hasGrid()) return;
