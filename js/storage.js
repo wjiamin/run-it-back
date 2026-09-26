@@ -1,0 +1,68 @@
+/* Saving on this device (browser localStorage). Nothing is sent anywhere.
+
+   Saved shape: {settings, videos}
+     settings  see defaultSettings() below; `v` is the settings version, used to upgrade old saves
+     videos    one entry per cover, keyed by YouTube id:
+       id, title, dur (video length, s), updated (last change, ms)
+       period      seconds per beat          } the beat grid: beats sit at anchor + k × period
+       anchor      the time of any one beat  }
+       rangeStart, rangeEnd                    the trimmed part to learn, on beats
+       oneT                                    a marked 1 that the counts follow
+       one1, one2, oneBeats                    the two marked 1s and the beats between them (0 when not locked)
+   The field names are kept short and unchanged so older saves keep loading. */
+
+// the key still says "coverLearner" (the app's first name), so covers saved before the rename still load
+const KEY = 'coverLearner.v1';
+export const SETTINGS_VERSION = 2;
+
+/** The practice plan settings, also used by "Reset plan to defaults". */
+export const defaultPlan = () => ({
+  blockSteps: [{rate: 0.5, on: true, reps: 3}, {rate: 0.75, on: true, reps: 3}, {rate: 1, on: true, reps: 3}],
+  connectSteps: [{rate: 0.75, on: true, reps: 2}, {rate: 1, on: true, reps: 2}],
+  fullSteps: [{rate: 0.75, on: true, reps: 2}, {rate: 1, on: true, reps: 3}],
+  connectOn: true,     // connect blocks together as you go
+  group: 4,            // blocks in each connected run
+  fullAfter: true,     // run the whole section after the blocks
+  auto: true,          // move on to the next part without waiting
+  musicBlocks: true,   // sound during block drills
+  musicFull: true,     // sound during connected and whole-section runs
+  leadStart: 4,        // count-in when a part starts (4 = 5, 6, 7, 8)
+  leadRepeat: 2,       // count-in before each repeat (2 = 7, 8)
+  rest: 2,             // seconds of pause after each run-through
+});
+
+export const defaultSettings = () => ({
+  counts: 8, mirror: true, muted: false, flash: false, click: false, v: SETTINGS_VERSION,
+  ...defaultPlan(),
+});
+
+/** Bring a saved object up to date: fill in new settings, upgrade old versions. Returns null if it isn't a save. */
+export function migrate(saved){
+  if (!saved || !saved.videos) return null;
+  const old = saved.settings || {};
+  // the first version kept one list of speeds; carry it over as the block plan
+  if (Array.isArray(old.speeds) && !old.blockSteps) old.blockSteps = old.speeds.map(x => ({rate: x.rate, on: !!x.on, reps: x.reps || 3}));
+  const settings = Object.assign(defaultSettings(), old);
+  // version 2 added count-ins, a pause after each run and connected runs: older saves get the new defaults for those
+  if (!(old.v >= SETTINGS_VERSION)){
+    const p = defaultPlan();
+    Object.assign(settings, {leadStart: p.leadStart, leadRepeat: p.leadRepeat, rest: p.rest, connectOn: p.connectOn,
+      group: p.group, connectSteps: p.connectSteps, v: SETTINGS_VERSION});
+  }
+  delete settings.leadIn; delete settings.speeds;
+  saved.settings = settings;
+  return saved;
+}
+
+export function loadStore(){
+  try {
+    const store = migrate(JSON.parse(localStorage.getItem(KEY)));
+    if (store) return store;
+  } catch {}
+  return {settings: defaultSettings(), videos: {}};
+}
+
+/** @returns {boolean} false if the browser refused (storage blocked or full) */
+export function saveStore(store){
+  try { localStorage.setItem(KEY, JSON.stringify(store)); return true; } catch { return false; }
+}
