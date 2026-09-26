@@ -21,7 +21,7 @@ body.noscroll{overflow:hidden}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 .app{max-width:760px;margin:0 auto;padding:0 16px 40px}
-body.pm .app{max-width:1280px}
+body.pm .app{max-width:1920px}
 .top{display:flex;align-items:center;gap:8px;padding:12px 0 10px}
 .top h1{font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
 .ghost{background:none;border:1px solid var(--line);border-radius:10px;min-width:40px;height:40px;padding:0 12px}
@@ -61,15 +61,26 @@ input[type=range]{accent-color:var(--accent)}
 .mask{position:absolute;left:0;right:0;background:#000;z-index:2;pointer-events:none}
 #maskT{top:0}#maskB{bottom:0}
 .stageMsg{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:20px;background:rgba(0,0,0,.7);font-size:14px}
-@media (max-width:899px){
+/* phones (and any short window, like a phone on its side): the video sits full width at the top and stays there while you scroll */
+@media (max-width:899px), (max-height:599px){
   .vcol{position:sticky;top:0;z-index:6;background:var(--bg);margin:0 -16px;padding-bottom:6px}
   .vcol .stage{border-radius:0}
   #ctlMainHome{padding:0 16px}
 }
-@media (min-width:900px){
-  .playerGrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;align-items:start}
-  .vcol{position:sticky;top:12px}
-  .stage{width:min(100%,calc((100vh - 210px)*16/9));margin:0 auto}
+/* on its side, the full-width video would be taller than the screen: cap it so the count and controls fit, and let it
+   scroll away normally (a sticky video would cover the whole screen and hide the panels) */
+@media (orientation:landscape) and (max-height:599px){
+  .vcol{position:relative}
+  .vcol .stage:not(.fs){aspect-ratio:auto;height:calc(100vh - 165px);height:calc(100dvh - 165px)}
+}
+@media (min-width:900px) and (min-height:600px){
+  /* computer: the video takes everything except a 360px control column, as big as the window height allows */
+  body.pm .app{padding:0 24px 24px}
+  .playerGrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+  .vcol{position:sticky;top:8px}
+  .stage{width:min(100%,calc((100vh - 150px)*16/9));margin:0 auto}
+  .pcol{max-height:calc(100vh - 70px);overflow-y:auto;padding-right:4px}
+  body.pm .top{padding:8px 0 6px}
 }
 
 /* controls (move into the stage in full screen) */
@@ -97,6 +108,8 @@ input[type=range]{accent-color:var(--accent)}
 .fsBar,.fsCount,#moreBtn{display:none}
 .stage.fs{position:relative;width:100%;height:100%;max-height:none;aspect-ratio:auto;border-radius:0;margin:0}
 .stage.fs.pseudo{position:fixed;inset:0;z-index:100;width:auto;height:auto}
+/* the video column is its own layer (it is sticky), so lift the whole column above the control panel while full screen */
+body.fsmode .vcol{z-index:150}
 .stage.fs .fsBar{display:block;position:absolute;left:0;right:0;bottom:0;z-index:5;
   padding:14px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
   background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;transition:opacity .25s;
@@ -111,10 +124,19 @@ input[type=range]{accent-color:var(--accent)}
 .stage.fs .fsCount{display:block;position:absolute;z-index:5;top:calc(8px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
   max-width:60%;text-align:right;color:#fff;background:rgba(0,0,0,.42);border-radius:12px;padding:4px 12px;
   --text:#fff;--muted:#e3e6ee;--panel2:rgba(255,255,255,.2);--line:rgba(255,255,255,.3)}
-.stage.fs .fsCount .count{margin:0;gap:8px;justify-content:flex-end}
+.stage.fs .fsCount{width:min(520px,62%)}
+@media (max-width:599px){ .stage.fs .fsCount{width:auto;max-width:none;left:calc(12px + env(safe-area-inset-left))} }
+.stage.fs .fsCount .count{margin:0;gap:10px}
 .stage.fs .fsCount .count .num{font-size:30px;width:auto;min-width:28px}
-.stage.fs .fsCount .count .segs{display:none}
-.stage.fs .fsCount .count .lbl{min-width:0}
+.stage.fs .fsCount .count .segs i{height:12px}
+.stage.fs .fsCount .count .lbl{min-width:0;white-space:nowrap}
+/* beat check: a ring that flashes on every count, green on the 1 */
+.flash{position:absolute;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 0 6px var(--accent);opacity:0;transition:opacity .12s ease-out}
+.flash.on{opacity:.9;transition:none}
+.flash.one{box-shadow:inset 0 0 0 10px var(--ok)}
+.count .num.pulse{color:var(--accent)}
+.twoOnes .status{font-size:14px;margin-top:10px}
+.twoOnes .status b{font-variant-numeric:tabular-nums}
 .fsStat{font-size:11px;opacity:.9;line-height:1.2}
 .stage.fs.ad .fsBar{top:0;bottom:auto;padding:8px calc(12px + env(safe-area-inset-right)) 14px calc(12px + env(safe-area-inset-left));background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,0))}
 /* a clear layer over the video: tapping the picture (including YouTube's own big play button) plays or pauses */
@@ -236,6 +258,7 @@ ol.steps li{margin:2px 0}
           <div class="shield" id="shield" aria-hidden="true"></div>
           <div id="stageMsg" class="stageMsg" hidden></div>
           <div class="cue" id="cue" hidden aria-hidden="true"></div>
+          <div class="flash" id="flash" aria-hidden="true"></div>
           <div class="fsCount" id="fsCount"><div class="fsStat" id="fsStat"></div></div>
           <div class="fsBar" id="fsBar"></div>
         </div>
@@ -267,6 +290,8 @@ ol.steps li{margin:2px 0}
               <button data-r="0.25">.25×</button><button data-r="0.5">.5×</button><button data-r="0.75">.75×</button><button data-r="1">1×</button>
             </div>
             <button id="mirrorBtn" class="btn sm" aria-pressed="true">Mirror</button>
+            <button id="flashBtn" class="btn sm" aria-pressed="false" title="Flash the video edge on every count, to check the count lines up">Flash</button>
+            <button id="clickBtn" class="btn sm" aria-pressed="false" title="Play a metronome click on every count">Click</button>
             <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press Skip">Ad?</button>
             <div class="miniSess" id="miniSess">
               <span class="ms" id="mSub"></span>
@@ -285,14 +310,8 @@ ol.steps li{margin:2px 0}
         <!-- BEATS -->
         <div id="panelBeats">
           <div class="card">
-            <ol class="steps">
-              <li><b>Tap it.</b> Play the song (it starts at half speed, which makes tapping easier) and tap on each beat, about 16 taps. Then skip near the end and tap 8 more, so the count doesn't drift.</li>
-              <li><b>Or type it.</b> If you know the BPM, type it in. Then play, and press <b>A beat is right here</b> on any clear beat, like a kick or snare.</li>
-              <li>Watch the count under the video. If it feels early or late, nudge it.</li>
-              <li>Then trim what to learn. The count starts from your chosen start point.</li>
-            </ol>
-          </div>
-          <div class="card">
+            <h2>Step 1 · Rough tempo</h2>
+            <p class="muted small" style="margin:0 0 10px">Tap along to about 8 beats (the video starts at half speed, which makes it easier), or type the BPM if you know it. It only needs to be close. Step 3 makes it exact.</p>
             <div class="row between">
               <div><div class="bpm" id="bpmLbl">–</div><div class="muted small" id="bpmSub">Not set yet</div></div>
               <button id="resetTaps" class="btn sm">Reset taps</button>
@@ -302,8 +321,30 @@ ol.steps li{margin:2px 0}
               <button id="undoTap" class="btn sm">Undo last tap</button>
               <label class="small muted row" style="gap:6px">or type the BPM <input id="bpmIn" type="number" min="40" max="300" step="0.1" placeholder="120" inputmode="decimal"></label>
               <button id="bpmSet" class="btn sm">Set</button>
-              <button id="syncHere" class="btn sm" disabled>A beat is right here</button>
             </div>
+          </div>
+          <div class="card twoOnes">
+            <h2>Step 2 · Mark the 1 where your part starts</h2>
+            <p class="muted small" style="margin:0 0 10px">Play to the first count of the choreography and press the button. Most exact: pause right on the 1, step with the arrows below, then press.</p>
+            <div class="row"><button id="markOne1" class="btn primary" disabled>This is a 1</button></div>
+            <h2 style="margin-top:16px">Step 3 · Mark a later 1</h2>
+            <p class="muted small" style="margin:0 0 10px">Skip ahead to another 1. The further away the better: near the end of the song is best. The app counts the 8-counts in between and works out the exact tempo.</p>
+            <div class="row"><button id="markOne2" class="btn primary" disabled>This is a later 1</button></div>
+            <div class="row" id="gapRow" style="margin-top:10px" hidden>
+              <button id="gapMinus" class="btn sm" aria-label="One fewer 8-count">−</button>
+              <span class="small" id="gapLbl"></span>
+              <button id="gapPlus" class="btn sm" aria-label="One more 8-count">+</button>
+            </div>
+            <div class="status muted" id="oneStatus" role="status"></div>
+            <div class="row" style="margin-top:12px">
+              <span class="muted small">Move the video</span>
+              <button class="btn sm" data-step="-0.1">◀ 0.1s</button><button class="btn sm" data-step="-0.03">◀ 0.03s</button>
+              <button class="btn sm" data-step="0.03">0.03s ▶</button><button class="btn sm" data-step="0.1">0.1s ▶</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Step 4 · Check it</h2>
+            <p class="muted small" style="margin:0">Turn on <b>Flash</b> or <b>Click</b> under the video and play. The edge flashes on every count (green on the 1), and the click marks each count. If it's a little early or late, use Timing below. If the 1 is on the wrong beat, redo step 2.</p>
             <div class="row" style="margin-top:12px">
               <button id="toPractice" class="btn primary" disabled>Next: trim what to learn →</button>
             </div>
@@ -320,7 +361,7 @@ ol.steps li{margin:2px 0}
               <button class="btn sm" data-bpm="-0.1">−0.1</button><button class="btn sm" data-bpm="0.1">+0.1</button>
               <button class="btn sm" id="halfBtn">Count half as fast</button><button class="btn sm" id="dblBtn">Count twice as fast</button>
             </div>
-            <p class="muted small" style="margin-bottom:0">Tip: if the count drifts late in the song, tap 8 more beats there and the tempo tightens up.</p>
+            <p class="muted small" style="margin-bottom:0">Tip: if the count drifts later in the song, mark a later 1 (step 3) further away.</p>
           </div>
         </div>
 
@@ -406,7 +447,7 @@ ol.steps li{margin:2px 0}
 'use strict';
 const $ = s => document.querySelector(s);
 const LS = 'coverLearner.v1';
-const APP_VERSION = '2026-09-20-c';
+const APP_VERSION = '2026-09-26-a';
 
 /* ---------- debug log: kept on this device, copyable, never includes video links or titles ---------- */
 const LOGK = 'runItBack.log.v1', LOG_MAX = 250;
@@ -432,7 +473,9 @@ function debugReport(){
   const inPlayer = !$('#viewPlayer').hidden;
   L.push('screen: ' + (inPlayer ? 'player, ' + tab + ' tab' : 'home'));
   if (cur && inPlayer){
-    L.push('beat: ' + (hasGrid() ? (60/cur.period).toFixed(1) + ' BPM' : 'not set') + (lastFit ? ', tap steadiness ' + Math.round(lastFit.rms*1000) + ' ms' : ''));
+    L.push('beat: ' + (hasGrid() ? (60/cur.period).toFixed(2) + ' BPM' : 'not set') + (lastFit ? ', tap steadiness ' + Math.round(lastFit.rms*1000) + ' ms' : '') +
+      (cur.one1 != null ? ', 1 marked at ' + fmtd(cur.one1) : ', no 1 marked') + (cur.oneBeats ? ', later 1 at ' + fmtd(cur.one2) + ' (' + cur.oneBeats/counts() + ' eight-counts apart)' : '') +
+      ', flash ' + (db.settings.flash ? 'on' : 'off') + ', click ' + (db.settings.click ? 'on' : 'off'));
     L.push('video: length ' + (duration || '?') + ' s, ' + (ready ? (playing ? 'playing' : 'not playing') : 'player not ready') + ', speed ' + rate + 'x, sound ' + (soundOff ? 'off' : 'on') +
       ', ad ' + (adDetected ? 'playing' : adManual ? 'unlocked by hand' : 'no'));
     L.push('full screen: ' + (fsOn ? (fsPseudo ? 'on (fallback layout)' : 'on (browser)') : 'off'));
@@ -461,7 +504,7 @@ const DEF_CONN = () => [{rate:0.75,on:true,reps:2},{rate:1,on:true,reps:2}];
 const defPlan = () => ({blockSteps:DEF_BLOCK(), connectSteps:DEF_CONN(), fullSteps:DEF_FULL(), connectOn:true, group:4, fullAfter:true, auto:true,
   musicBlocks:true, musicFull:true, leadStart:4, leadRepeat:2, rest:2});
 const SETTINGS_V = 2;
-const fresh = () => ({settings:Object.assign({counts:8, mirror:true, muted:false, v:SETTINGS_V}, defPlan()), videos:{}});
+const fresh = () => ({settings:Object.assign({counts:8, mirror:true, muted:false, flash:false, click:false, v:SETTINGS_V}, defPlan()), videos:{}});
 function loadDb(){
   try {
     const d = JSON.parse(localStorage.getItem(LS));
@@ -495,6 +538,7 @@ let userMuted = !!db.settings.muted, soundOff = userMuted;
 let zoom = false, zoomView = null, drag = null, lastPrev = 0, lastPrevT = 0;
 let fsOn = false, fsPseudo = false, fsReal = false, idleTimer = 0;
 let adManual = false, adDetected = false, lastFit = null, lastState = '';
+let actx = null, clickNext = -1, flashTimer = 0;
 
 /* ---------- helpers ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -569,16 +613,20 @@ function blocks(){
   const L = blockLen(), n = Math.max(1, Math.ceil((cur.rangeEnd - cur.rangeStart)/L - 1e-6));
   return Array.from({length:n}, (_, i) => ({n:i+1, s:cur.rangeStart + i*L, e:Math.min(cur.rangeEnd, cur.rangeStart + (i+1)*L)}));
 }
+/* The count number (1–8) comes from a marked 1 (a downbeat) when there is one, so it follows the music. Without one it
+   counts from the start of the trimmed range, as before. Block numbers always count from the range start. */
+const downK = () => cur.oneT != null ? tToK(cur.oneT) : cur.rangeStart != null ? tToK(cur.rangeStart) : 0;
+const countOfK = k => { const C = counts(); return (((k - downK()) % C) + C) % C + 1; };
 function whereIs(t){
   if (!hasGrid()) return null;
-  const base = cur.rangeStart != null ? cur.rangeStart : cur.anchor;
-  const b = Math.floor((t - base)/cur.period + 1e-6);
+  const kk = Math.floor((t - cur.anchor)/cur.period + 1e-6);
+  const base = cur.rangeStart != null ? tToK(cur.rangeStart) : downK(), b = kk - base;
   if (b < 0){
     // the counts just before the range are the count-in: 5, 6, 7, 8
-    return -b <= counts() ? {count: ((b % counts()) + counts()) % counts() + 1, block: 0, lead:true} : {out:'before range'};
+    return -b <= counts() ? {count: countOfK(kk), block: 0, lead:true} : {out:'before range'};
   }
   if (cur.rangeEnd != null && t >= cur.rangeEnd - 1e-6) return {out:'after range'};
-  return {count: b % counts() + 1, block: Math.floor(b/counts()) + 1};
+  return {count: countOfK(kk), block: Math.floor(b/counts()) + 1};
 }
 
 /* ---------- player ---------- */
@@ -678,7 +726,7 @@ function nowT(){
 function seek(t){
   if (!ready) return;
   const was = playing;
-  player.seekTo(Math.max(0, t), true); lastRaw = -1;
+  player.seekTo(Math.max(0, t), true); lastRaw = -1; clickNext = -1;
   if (!was) player.pauseVideo();   // seeking a paused or unstarted video would otherwise start it
 }
 function play(){ if (ready) player.playVideo(); }
@@ -710,6 +758,7 @@ function setFs(on){
   const st = $('#stage');
   st.classList.toggle('fs', on); st.classList.toggle('pseudo', on && fsPseudo);
   document.body.classList.toggle('noscroll', on && fsPseudo);
+  document.body.classList.toggle('fsmode', on);
   if (on){ $('#fsBar').append($('#ctlMain'), $('#ctlOpts')); $('#fsCount').prepend($('#countRow')); }
   else {
     $('#ctlMainHome').append($('#ctlMain')); $('#ctlOptsHome').append($('#ctlOpts'));
@@ -905,7 +954,14 @@ function tick(){
     $('#cNum').textContent = w && !w.out ? w.count : '–';
     $('#cLbl').textContent = adDetected ? 'ad playing' : !w ? 'no beat yet' : w.out ? w.out : w.lead ? 'count-in' : 'Block ' + w.block;
     [...$('#cSegs').children].forEach((el,i) => el.classList.toggle('on', !!w && !w.out && i + 1 === w.count));
+    if (playing && hasGrid() && !adDetected){ const kk = Math.floor((t - cur.anchor)/cur.period + 1e-6); beatFlash(countOfK(kk) === 1); }
   }
+  // outside the range the count shows '–', but the flash should still mark every beat
+  if (playing && hasGrid() && !adDetected && db.settings.flash && w && w.out){
+    const kk = Math.floor((t - cur.anchor)/cur.period + 1e-6);
+    if (kk !== tick.lastK){ tick.lastK = kk; beatFlash(countOfK(kk) === 1); }
+  }
+  scheduleClicks(t);
 
   if (running && performance.now() > sess.guard){
     const st = sess.plan[sess.i];
@@ -923,7 +979,7 @@ function tick(){
 function applyTaps(){
   lastFit = fitBeats(taps);
   if (taps.length % 4 === 0) dlog('beat', 'taps ' + taps.length + ': ' + (lastFit ? (60/lastFit.period).toFixed(1) + ' BPM, steadiness ' + Math.round(lastFit.rms*1000) + ' ms' : 'could not find a steady beat yet'));
-  if (lastFit){ cur.period = lastFit.period; cur.anchor = lastFit.phase; sess = null; fixRange(); save2(); refreshAll(); }
+  if (lastFit){ cur.period = lastFit.period; cur.anchor = lastFit.phase; dropTwoOnes(); sess = null; fixRange(); save2(); refreshAll(); }
   updateBeatsUI();
 }
 function tap(){
@@ -935,20 +991,88 @@ function tap(){
 }
 function undoTap(){ if (!taps.length) return; dlog('beat', 'undo tap'); taps.pop(); if (taps.length >= 4) applyTaps(); else { lastFit = null; updateBeatsUI(); } }
 function rebase(){ if (hasRange()) cur.anchor = cur.rangeStart; }
-/* Type the BPM instead of tapping it. With no beat yet, the current position counts as a beat until you press "A beat is right here". */
+/* Type the BPM instead of tapping it. With no beat yet, the current position counts as a beat until you mark a 1. */
 function applyBpm(v){
   if (!cur || !(v >= 40 && v <= 300)){ if (cur) dlog('beat', 'typed BPM rejected: ' + v); return; }
   dlog('beat', 'typed BPM ' + v + (hasGrid() ? '' : ' (no beat yet, so the playhead counts as a beat)'));
   if (hasGrid()){ rebase(); cur.period = 60/v; } else { cur.period = 60/v; cur.anchor = nowT(); }
-  sess = null; lastFit = null; fixRange(); save2(); refreshAll(); lastCountKey = '';
+  dropTwoOnes(); sess = null; lastFit = null; fixRange(); save2(); refreshAll(); lastCountKey = '';
 }
-/* Slide the beat grid so a beat lands exactly on the playhead. Play at half speed and press it on a clear kick or snare. */
-function syncHere(){
-  if (!hasGrid()) return;
-  const t = nowT(), d = t - snap(t);
-  dlog('beat', 'a beat is right here: moved the count by ' + Math.round(d*1000) + ' ms');
-  cur.anchor += d; if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; }
-  sess = null; save2(); refreshAll(); lastCountKey = '';
+
+/* Two 1s: the tempo comes from the gap between two marked downbeats, so tapping errors spread over the whole gap.
+   one1 is where your part starts (it also becomes the 1 the count follows); one2 is any later 1. oneBeats is the gap in beats. */
+function markOne(which){
+  if (!hasGrid() || !ready || adDetected) return;
+  const t = nowT(), C = counts();
+  if (which === 1){
+    const len = hasRange() ? cur.rangeEnd - cur.rangeStart : 4*blockLen();
+    cur.one1 = t; cur.oneT = t;
+    if (cur.one2 != null && Math.abs(cur.one2 - t) >= C*cur.period*0.9){ cur.oneBeats = Math.max(1, Math.round(Math.abs(cur.one2 - t)/(C*cur.period)))*C; recomputeTwo(); }
+    else cur.anchor += t - snap(t);   // slide the grid so a beat sits exactly on this 1
+    cur.rangeStart = t; cur.rangeEnd = t + len;
+    dlog('beat', 'marked the 1 where the part starts (' + fmtd(t) + ')');
+  } else {
+    if (cur.one1 == null){ $('#oneStatus').textContent = 'Mark the 1 where your part starts first (step 2).'; return; }
+    const gap = Math.abs(t - cur.one1);
+    if (gap < C*cur.period*0.9){ $('#oneStatus').textContent = 'That is less than one 8-count away. Skip further ahead and try again.'; return; }
+    cur.one2 = t; cur.oneBeats = Math.max(1, Math.round(gap/(C*cur.period)))*C;
+    const before = 60/cur.period;
+    recomputeTwo();
+    dlog('beat', 'marked a later 1: ' + cur.oneBeats/C + ' eight-counts apart, tempo ' + before.toFixed(2) + ' → ' + (60/cur.period).toFixed(2) + ' BPM');
+  }
+  sess = null; lastFit = null; taps = [];
+  fixRange(); save2(); refreshAll(); lastCountKey = '';
+}
+function recomputeTwo(){
+  if (cur.one1 == null || cur.one2 == null || !cur.oneBeats) return;
+  const lo = Math.min(cur.one1, cur.one2), hi = Math.max(cur.one1, cur.one2);
+  cur.period = (hi - lo)/cur.oneBeats;
+  cur.anchor = cur.one1; cur.oneT = cur.one1;
+}
+/* the gap is a guess from the rough tempo: − and + fix it if the guess was one 8-count out */
+function changeGap(d){
+  if (!cur.oneBeats) return;
+  const C = counts(), n = cur.oneBeats/C + d;
+  if (n < 1) return;
+  cur.oneBeats = n*C; recomputeTwo();
+  dlog('beat', 'gap changed to ' + n + ' eight-counts: ' + (60/cur.period).toFixed(2) + ' BPM');
+  sess = null; fixRange(); save2(); refreshAll(); lastCountKey = '';
+}
+/* tapping or typing a new tempo replaces the two-1s tempo (the 1 itself stays) */
+function dropTwoOnes(){ if (cur) { cur.one2 = null; cur.oneBeats = 0; } }
+function stepVideo(d){ if (!ready) return; if (playing) player.pauseVideo(); seek(Math.max(0, nowT() + d)); }
+
+/* ---------- beat check: flash and click ---------- */
+function beatFlash(isOne){
+  if (!db.settings.flash) return;
+  const f = $('#flash'), n = $('#cNum');
+  f.classList.toggle('one', isOne); f.classList.add('on'); n.classList.add('pulse');
+  clearTimeout(flashTimer); flashTimer = setTimeout(() => { f.classList.remove('on'); n.classList.remove('pulse'); }, 90);
+}
+function ensureAudio(){
+  try {
+    if (!actx){ const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; actx = new AC(); }
+    if (actx.state === 'suspended') actx.resume();
+  } catch (e) { dlog('error', 'click sound unavailable: ' + e.message); return null; }
+  return actx;
+}
+function beep(when, accent){
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.frequency.value = accent ? 1760 : 1100;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(accent ? 0.5 : 0.3, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+  o.connect(g).connect(actx.destination); o.start(when); o.stop(when + 0.08);
+}
+/* Schedule clicks a moment ahead on the audio clock, converting video time to real time with the playback speed. */
+function scheduleClicks(t){
+  if (!db.settings.click || !actx || !playing || !hasGrid() || adDetected || (sess && sess.resting)){ clickNext = -1; return; }
+  const k0 = Math.ceil((t - cur.anchor)/cur.period - 0.02);
+  if (clickNext < k0) clickNext = k0;
+  for (;;){
+    const wait = (kToT(clickNext) - t)/rate;
+    if (wait > 0.2) break;
+    if (wait > -0.03) beep(actx.currentTime + Math.max(0, wait), countOfK(clickNext) === 1);
+    clickNext++;
+  }
 }
 function updateBeatsUI(){
   const g = hasGrid();
@@ -961,9 +1085,19 @@ function updateBeatsUI(){
   $('#bpmSub').textContent = sub;
   $('#tapN').textContent = taps.length ? '(' + taps.length + ')' : '';
   $('#toPractice').disabled = !g;
-  $('#syncHere').disabled = !g; $('#undoTap').disabled = !taps.length;
-  if (document.activeElement !== $('#bpmIn')) $('#bpmIn').value = g ? (60/cur.period).toFixed(1) : '';
+  $('#undoTap').disabled = !taps.length;
+  if (document.activeElement !== $('#bpmIn')) $('#bpmIn').value = g ? (60/cur.period).toFixed(cur && cur.oneBeats ? 2 : 1) : '';
   document.querySelectorAll('[data-nudge],[data-bpm],#halfBtn,#dblBtn').forEach(b => b.disabled = !g);
+  // two 1s
+  const has1 = g && cur.one1 != null, has2 = has1 && cur.one2 != null && cur.oneBeats > 0;
+  $('#markOne1').disabled = !g; $('#markOne2').disabled = !has1;
+  $('#markOne1').textContent = has1 ? 'Move the 1 here' : 'This is a 1';
+  $('#gapRow').hidden = !has2;
+  if (has2) $('#gapLbl').textContent = (cur.oneBeats/counts()) + ' eight-counts between the two 1s';
+  $('#oneStatus').textContent = !g ? 'Set a rough tempo first (step 1).'
+    : has2 ? '✓ Tempo locked from the two 1s: ' + (60/cur.period).toFixed(2) + ' BPM. The count now follows your 1. If it drifts, the gap above may be one 8-count out: try − or +.'
+    : has1 ? '✓ The 1 is at ' + fmtd(cur.one1) + '. Now mark a later 1 to make the tempo exact.'
+    : '';
 }
 
 /* ---------- trim window ---------- */
@@ -985,7 +1119,8 @@ function updateTrim(){
 function updateRangeLite(){
   $('#tsLbl').textContent = fmtd(cur.rangeStart); $('#teLbl').textContent = fmtd(cur.rangeEnd);
   const n = tToK(cur.rangeEnd) - tToK(cur.rangeStart), nb = blocks().length;
-  $('#rangeInfo').textContent = n + ' counts · ' + nb + ' block' + (nb > 1 ? 's' : '');
+  const sc = countOfK(tToK(cur.rangeStart));
+  $('#rangeInfo').textContent = n + ' counts · ' + nb + ' block' + (nb > 1 ? 's' : '') + (sc !== 1 ? ' · starts on ' + sc + ', not a 1' : '');
   updateTrim(); renderChips();
 }
 function updateRangeUI(){ if (zoom) setZoomView(); updateRangeLite(); }
@@ -995,8 +1130,10 @@ function tFromX(x){
 }
 /* the frame to show for a handle: the start itself, or a moment before the end */
 const previewT = which => which === 's' ? cur.rangeStart : Math.max(cur.rangeStart, cur.rangeEnd - 2*cur.period);
-function moveHandle(which, t, preview){
+function moveHandle(which, t, preview, snapToOne){
   const b = kBounds(); let k = tToK(t);
+  // dragging with a marked 1 snaps to 1s (the start of each 8-count); the ◀ 1 ▶ buttons still move one count
+  if (snapToOne && cur.oneT != null){ const d = downK(), C = counts(); k = d + Math.round((k - d)/C)*C; }
   if (which === 's'){ k = clamp(k, b.min, tToK(cur.rangeEnd) - 1); cur.rangeStart = kToT(k); }
   else { k = clamp(k, tToK(cur.rangeStart) + 1, b.max); cur.rangeEnd = kToT(k); }
   updateRangeLite();
@@ -1009,7 +1146,7 @@ function commitRange(seekTo){ if (hasRange()) dlog('range', fmtd(cur.rangeStart)
 for (const [id, which] of [['tHS', 's'], ['tHE', 'e']]){
   const h = $('#' + id);
   h.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId); drag = which; lastPrevT = previewT(which); h.classList.add('drag'); });
-  h.addEventListener('pointermove', e => { if (drag === which) moveHandle(which, tFromX(e.clientX), true); });
+  h.addEventListener('pointermove', e => { if (drag === which) moveHandle(which, tFromX(e.clientX), true, true); });
   const end = () => { if (drag !== which) return; drag = null; h.classList.remove('drag'); commitRange(lastPrevT); };
   h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end);
   h.addEventListener('keydown', e => {
@@ -1148,6 +1285,7 @@ function setTab(t){
 }
 function syncControls(){
   $('#adBtn').setAttribute('aria-pressed', adManual);
+  $('#flashBtn').setAttribute('aria-pressed', !!db.settings.flash); $('#clickBtn').setAttribute('aria-pressed', !!db.settings.click);
   document.querySelectorAll('#rateSeg button').forEach(b => b.setAttribute('aria-pressed', Math.abs(+b.dataset.r - rate) < 1e-6));
   $('#mirrorBtn').setAttribute('aria-pressed', db.settings.mirror); $('#playerWrap').classList.toggle('mirror', db.settings.mirror);
   $('#muteBtn').textContent = soundOff ? '🔇' : '🔊'; $('#muteBtn').setAttribute('aria-pressed', soundOff);
@@ -1189,16 +1327,33 @@ $('#resetTaps').addEventListener('click', () => { taps = []; lastFit = null; upd
 $('#undoTap').addEventListener('click', undoTap);
 $('#bpmSet').addEventListener('click', () => applyBpm(+$('#bpmIn').value));
 $('#bpmIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); applyBpm(+$('#bpmIn').value); } });
-$('#syncHere').addEventListener('click', syncHere);
+$('#markOne1').addEventListener('click', () => markOne(1));
+$('#markOne2').addEventListener('click', () => markOne(2));
+$('#gapMinus').addEventListener('click', () => changeGap(-1));
+$('#gapPlus').addEventListener('click', () => changeGap(1));
+// if Click was left on, the first tap anywhere starts the audio (browsers only allow sound to start from a tap)
+document.addEventListener('pointerdown', () => { if (db.settings.click && !actx) ensureAudio(); }, true);
+$('#flashBtn').addEventListener('click', () => { db.settings.flash = !db.settings.flash; save(); dlog('check', 'flash ' + (db.settings.flash ? 'on' : 'off')); syncControls(); });
+$('#clickBtn').addEventListener('click', () => {
+  db.settings.click = !db.settings.click;
+  if (db.settings.click) ensureAudio();   // browsers only allow sound to start from a tap
+  save(); clickNext = -1; dlog('check', 'click ' + (db.settings.click ? 'on' : 'off')); syncControls();
+});
 $('#adBtn').addEventListener('click', () => { adManual = !adManual; dlog('ad', 'Ad? button ' + (adManual ? 'on (video unlocked)' : 'off')); syncControls(); });
 $('#moreBtn').addEventListener('click', () => { setMore(!$('#stage').classList.contains('more')); bumpControls(); });
 $('#panelBeats').addEventListener('click', e => {
+  const st = e.target.closest('[data-step]');
+  if (st) return stepVideo(+st.dataset.step);
   const n = e.target.closest('[data-nudge]'), b = e.target.closest('[data-bpm]');
   if (!hasGrid()) return;
-  if (n){ const d = +n.dataset.nudge; cur.anchor += d; if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; } }
-  if (b){ rebase(); cur.period = 60/(60/cur.period + +b.dataset.bpm); }
-  if (e.target.id === 'halfBtn'){ rebase(); cur.period *= 2; }
-  if (e.target.id === 'dblBtn'){ rebase(); cur.period /= 2; }
+  if (n){
+    const d = +n.dataset.nudge; cur.anchor += d;
+    if (hasRange()){ cur.rangeStart += d; cur.rangeEnd += d; }
+    for (const f of ['oneT', 'one1', 'one2']) if (cur[f] != null) cur[f] += d;   // the marked 1s move with the count
+  }
+  if (b){ rebase(); cur.period = 60/(60/cur.period + +b.dataset.bpm); dropTwoOnes(); }
+  if (e.target.id === 'halfBtn'){ rebase(); cur.period *= 2; dropTwoOnes(); }
+  if (e.target.id === 'dblBtn'){ rebase(); cur.period /= 2; dropTwoOnes(); }
   if (n || b || e.target.id === 'halfBtn' || e.target.id === 'dblBtn'){
     dlog('beat', 'adjusted: ' + (n ? 'timing ' + n.dataset.nudge + ' s' : b ? 'tempo ' + b.dataset.bpm + ' BPM' : e.target.id === 'halfBtn' ? 'count half as fast' : 'count twice as fast'));
     sess = null; fixRange(); save2(); refreshAll(); lastCountKey = ''; }

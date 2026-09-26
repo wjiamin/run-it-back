@@ -3,7 +3,8 @@
 A small web app for learning K-pop dance covers faster from a YouTube practice video.
 
 - Plays the video mirrored, with speed control, full screen and mute
-- Tap along to the beat once, and the app counts 1–8 for you
+- Set a rough tempo, then mark two 1s far apart: the app works out the exact tempo and counts 1–8 for you
+- Flash and click on every count, to check the count lines up
 - Trim the part you want to learn. It is cut into 8-count blocks automatically
 - Each block starts on a 5-6-7-8 count-in and runs through your speeds (slow, faster, full speed), with a short pause after each run
 - Every few blocks are connected together, then the whole section runs with the music
