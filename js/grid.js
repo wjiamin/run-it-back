@@ -28,15 +28,27 @@ export function beatBounds(cover, duration){
 }
 
 /**
+ * Set the range to the whole song: from the marked 1 where the dance starts (one1) if there is one, otherwise from the
+ * first 1 in the video (so the counts line up from the start), otherwise from the first beat; to the last beat.
+ */
+export function setWholeSong(cover, counts, duration){
+  const b = beatBounds(cover, duration);
+  let start = b.min;
+  if (cover.one1 != null) start = clamp(nearestBeat(cover, cover.one1), b.min, b.max);
+  else if (cover.oneT != null){ const one = downbeat(cover); start = one - Math.floor((one - b.min) / counts) * counts; }
+  cover.rangeStart = beatTime(cover, start);
+  cover.rangeEnd = beatTime(cover, b.max);
+}
+
+/**
  * Keep the trimmed range on beats, inside the video and at least one count long.
- * The first time (no range yet) it picks 4 blocks from the start. Changes the cover in place.
+ * The first time (no range yet) it is the whole song. Changes the cover in place.
  */
 export function fixRange(cover, counts, duration){
   if (!hasGrid(cover) || !duration) return;
+  if (cover.rangeStart == null || cover.rangeEnd == null) setWholeSong(cover, counts, duration);
   const b = beatBounds(cover, duration);
-  let start, end;
-  if (cover.rangeStart == null || cover.rangeEnd == null){ start = Math.max(0, b.min); end = start + 4 * counts; }
-  else { start = nearestBeat(cover, cover.rangeStart); end = nearestBeat(cover, cover.rangeEnd); }
+  let start = nearestBeat(cover, cover.rangeStart), end = nearestBeat(cover, cover.rangeEnd);
   start = clamp(start, b.min, b.max - 1);
   end = clamp(end, start + 1, b.max);
   cover.rangeStart = beatTime(cover, start);

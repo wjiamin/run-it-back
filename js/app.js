@@ -1,10 +1,13 @@
-/* Run It Back: the app. It holds the state, drives the YouTube player and the practice session, and keeps the page in
-   step. The maths lives in modules that never touch the page:
+/* Run It Back: the app. It holds the state, drives the YouTube player, connects the practice session to it, and keeps
+   the page in step. The logic lives in modules that never touch the page (and have tests in tests.js):
      beats.js    tempo from taps or from two marked 1s
      grid.js     beats, counts, blocks and the trimmed range
-     plan.js     the practice steps and count-ins
+     plan.js     the practice steps, count-ins, and where to continue
+     practice.js the practice session (runs, pauses, count-ins, Again and Got it)
      storage.js  saving on this device
+   and two small helpers that do:
      log.js      the debug log
+     pwa.js      installing to the home screen and working offline
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -17,12 +20,14 @@
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, enabledSteps, groupSize, ladderText, stepLabel, planCountIn, countInNumber} from './plan.js';
+import {buildPlan, enabledSteps, groupSize, ladderText, stepLabel, countInNumber, resumeIndex} from './plan.js';
+import {Practice} from './practice.js';
+import {setupInstall} from './pwa.js';
 import {loadStore, saveStore, defaultPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-27-a';
+const APP_VERSION = '2026-09-27-c';
 
 /* ---------- state ---------- */
 
@@ -167,7 +172,8 @@ function showStageMessage(text){ const m = $('#stageMsg'); m.hidden = !text; m.t
 
 async function openCover(id){
   cover = store.videos[id] || (store.videos[id] = {id, title: '', period: 0, anchor: null, rangeStart: null, rangeEnd: null, updated: Date.now()});
-  taps = []; lastFit = null; session = null;
+  taps = []; lastFit = null;
+  if (session){ session.stop(); session = null; }
   playerReady = false; duration = cover.dur || 0; clockRaw = -1; shownCountKey = ''; zoomed = false;
   adUnlocked = false; adPlaying = false; lastPlayerState = ''; setMore(false);
   log('video', 'open: ' + (hasGrid() ? 'beat set (' + bpm().toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cover.dur || 'none'));
@@ -229,7 +235,7 @@ function onPlayerState(e){
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
   if (e.data === STATE.CUED) readVideoInfo(true);
   if (e.data === STATE.PLAYING){ showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
-  if (e.data === STATE.ENDED && sessionRunning()) segmentEnd();   // the part ran to the very end of the video
+  if (e.data === STATE.ENDED && sessionRunning()) session.segmentEnd();   // the part ran to the very end of the video
   clockRaw = -1;
   updateSessionUI(); bumpControls();
 }
@@ -368,21 +374,25 @@ function bumpControls(){
 }
 
 /* ---------- practice session ----------
-   A session plays a plan (plan.js) step by step. Each step is run `reps` times; each run starts with a count-in and ends
-   with a pause. Fields:
-     mode              'all' (the whole plan) or 'full' (only the whole-section runs)
-     plan, index       the steps, and the one being played
-     rep               which run of this step, from 0
-     from, preRoll, countIn   where this run starts and its count-in (see planCountIn)
-     waiting           a part finished and "move on automatically" is off: waiting for you
-     pausing           in the pause between runs
-     done              the plan is finished
-     ignoreUntil       performance.now() before which the playhead isn't checked (it takes a moment to settle after a seek)
-     timer             the pause timer */
+   The session itself is in practice.js. Here it gets connected to the player and the page, and its progress is saved on
+   the cover so you can continue where you left off. */
 
-const sessionRunning = () => !!session && !session.done && !session.waiting && !session.pausing;
+/** What the practice session needs from the app (see practice.js). */
+const practiceEnv = {
+  settings,
+  period: () => cover.period,
+  seek, play, pause, log,
+  now: () => performance.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: id => clearTimeout(id),
+  onStep: step => { setRate(step.rate); applySound(); rememberProgress(step); },
+  onFinish: () => { applySound(); forgetProgress(); },
+  onChange: () => updateSessionUI(),
+};
+
+const sessionRunning = () => !!session && session.running;
 /** The step being played, or the one just finished while waiting for you. */
-const currentStep = () => !session || session.done ? null : session.plan[session.waiting ? session.index - 1 : session.index];
+const currentStep = () => session ? session.current : null;
 function currentBlockNum(){ const st = currentStep(); return st && st.kind === 'block' ? st.block : 0; }
 /** The first and last block the current step covers. */
 function currentSpan(){
@@ -390,20 +400,23 @@ function currentSpan(){
   return !st ? null : st.kind === 'block' ? [st.block, st.block] : st.kind === 'connect' ? [st.a, st.b] : null;
 }
 
-/** Build the plan and start at the first step matching `isStart` (or the first step). */
+const buildCurrentPlan = mode => buildPlan(settings, blocks(), {s: cover.rangeStart, e: cover.rangeEnd}, mode);
+
+/** Build the plan and start at the first step matching `isStart(step, index)` (or the first step). */
 function startSession(mode, isStart){
   if (!hasRange()) return;
-  clearTimeout(session && session.timer);
-  const plan = buildPlan(settings, blocks(), {s: cover.rangeStart, e: cover.rangeEnd}, mode);
+  if (session) session.stop();
+  const plan = buildCurrentPlan(mode);
   if (!plan.length) return;
   const index = Math.max(0, plan.findIndex(isStart));
-  session = {mode, plan, index, rep: 0, from: 0, preRoll: false, countIn: 0, waiting: false, pausing: false, done: false, ignoreUntil: 0, timer: 0};
+  session = new Practice(plan, mode, index, practiceEnv);
   log('practice', 'start (' + mode + '): ' + plan.length + ' steps, from step ' + (index + 1));
-  startStep(0);
+  session.start();
 }
 const gotoBlock = n => startSession('all', st => st.kind === 'block' && st.block === n);
 const gotoConnect = g => startSession('all', st => st.part === 'c' + g);
 const startFull = () => startSession('full', () => true);
+const startFromBeginning = () => startSession('all', (_, i) => i === 0);
 function restartPart(){
   const st = currentStep();
   if (!st) return;
@@ -411,69 +424,39 @@ function restartPart(){
   startSession('all', s => s.part === st.part);
 }
 
-function startStep(delay){
-  const st = session.plan[session.index];
-  log('practice', 'step ' + (session.index + 1) + '/' + session.plan.length + ': ' + stepLabel(st) + ' at ' + st.rate + 'x, ' + st.reps + (st.kind === 'block' ? ' reps' : ' runs'));
-  setRate(st.rate); applySound();
-  startRun(delay);
-}
-
-/** Start one run of the current step, after `delay` ms of pause. */
-function startRun(delay){
-  const s = session, st = s.plan[s.index];
-  clearTimeout(s.timer);
-  Object.assign(s, planCountIn(st, s.rep === 0 ? settings.leadStart : settings.leadRepeat, cover.period));
-  if (s.preRoll && s.rep === 0) log('practice', 'count-in loops round: ' + s.countIn + ' counts from the end of the part');
-  s.ignoreUntil = performance.now() + 700 + delay;
-  const go = () => {
-    if (session !== s) return;   // the session was replaced during the pause
-    s.pausing = false; s.ignoreUntil = performance.now() + 700;
-    seek(s.from); play(); updateSessionUI();
-  };
-  if (delay > 0){ s.pausing = true; pause(); s.timer = setTimeout(go, delay); updateSessionUI(); }
-  else go();
-}
-function skipPause(){ if (session && session.pausing){ clearTimeout(session.timer); session.pausing = false; startRun(0); } }
-
-/** A stretch of playing reached its end: after a pre-roll count-in jump to the part's start, after the part move on. */
-function segmentEnd(){
-  const s = session, st = s.plan[s.index];
-  if (!s.preRoll) return advance();
-  s.preRoll = false; s.ignoreUntil = performance.now() + 700;
-  seek(st.s); play(); updateSessionUI();
-}
-
-/** A run finished: run it again, or go to the next step (pausing first), or wait for you, or finish. */
-function advance(){
-  const s = session, st = s.plan[s.index], pauseMs = settings.rest * 1000;
-  s.ignoreUntil = performance.now() + 700 + pauseMs;
-  s.rep++;
-  if (s.rep < st.reps) startRun(pauseMs);
-  else {
-    const next = s.plan[s.index + 1];
-    if (!next){
-      s.done = true; log('practice', 'complete'); pause(); applySound();
-    } else if (next.part !== st.part && !settings.auto){
-      s.index++; s.rep = 0; s.waiting = true; log('practice', 'waiting for you before ' + stepLabel(next)); pause();
-    } else {
-      s.index++; s.rep = 0; startStep(pauseMs); return;
-    }
-  }
-  updateSessionUI();
-}
-
 function endSession(why){
   if (!session) return;
   log('practice', 'stopped: ' + (why || 'the trim, plan or beat was changed'));
-  clearTimeout(session.timer); session = null; applySound(); updateSessionUI();
+  session.stop(); session = null; applySound(); updateSessionUI();
 }
 
-/** The big practice button: start, carry on after waiting, skip the pause, or play/pause. */
+/** The big practice button: start (or continue where you left off), carry on after a pause or wait, or play/pause. */
 function onMainButton(){
-  if (!session || session.done) return gotoBlock(1);
-  if (session.waiting){ session.waiting = false; return startStep(0); }
-  if (session.pausing) return skipPause();
+  if (!session){
+    const resume = resumePoint();
+    return resume ? startSession('all', (_, i) => i === resume.index) : startFromBeginning();
+  }
+  if (session.done) return startFromBeginning();
+  if (session.waiting || session.pausing) return session.continueNow();
   togglePlay();
+}
+function again(){ if (session) session.again(); }
+function gotIt(){ if (session) session.gotIt(); }
+
+/* Continue where you left off: each full-plan step that starts is saved on the cover (cover.resume), and cleared when
+   the plan finishes. It only applies while the range and counts per block are unchanged (see plan.js resumeIndex). */
+function rememberProgress(step){
+  if (session.mode !== 'all') return;
+  cover.resume = {part: step.part, rate: step.rate, label: stepLabel(step), counts: counts(), rangeStart: cover.rangeStart, rangeEnd: cover.rangeEnd};
+  saveCover();
+}
+function forgetProgress(){ if (cover.resume && session.mode === 'all'){ delete cover.resume; saveCover(); } }
+/** Where the saved progress continues: {index, step} in the full plan, or null (nothing saved, or it's the first step). */
+function resumePoint(){
+  if (!hasRange() || !cover.resume) return null;
+  const plan = buildCurrentPlan('all');
+  const index = resumeIndex(plan, cover.resume, {s: cover.rangeStart, e: cover.rangeEnd, counts: counts(), period: cover.period});
+  return index > 0 ? {index, step: plan[index]} : null;
 }
 
 /* ---------- beat check: flash and click ---------- */
@@ -543,7 +526,7 @@ function watchForAds(){
   const msg = adPlaying ? 'An ad is playing. Tap the video to use its Skip button when it appears. Your practice waits until the ad ends.'
     : adUnlocked ? 'The video is unlocked, so you can tap it. Press Ad? again to lock it.' : '';
   if (note.textContent !== msg){ note.textContent = msg; note.hidden = !msg; }
-  if (wasAd && !adPlaying && sessionRunning()) startRun(0);   // the ad ended: restart this run properly
+  if (wasAd && !adPlaying && sessionRunning()) session.startRun(0);   // the ad ended: restart this run properly
 }
 
 function updateTimeUI(t){
@@ -586,7 +569,7 @@ function updateCountUI(t, countIn){
 function followSession(t){
   if (!sessionRunning() || !playing || adPlaying || performance.now() <= session.ignoreUntil) return;
   const st = session.plan[session.index];
-  if (t >= st.e && t < st.e + 1.5) segmentEnd();
+  if (t >= st.e && t < st.e + 1.5) session.segmentEnd();
   else if (t < session.from - 1.5 || t >= st.e + 1.5){
     endSession('the playhead left the part (at ' + t.toFixed(1) + ' s, expected ' + session.from.toFixed(1) + ' to ' + st.e.toFixed(1) + ' s)');
   }
@@ -644,11 +627,12 @@ function applyBpm(value){
   forgetLaterOne(); lastFit = null; beatChanged();
 }
 
-/** Step 2: the 1 where your part starts. It becomes the 1 the counts follow and the start of the trimmed range. */
+/** Step 2: the 1 where the dance starts. It becomes the 1 the counts follow and the start of the trimmed range. */
 function markFirstOne(){
   if (!hasGrid() || !playerReady || adPlaying) return;
   const t = currentTime(), C = counts();
-  const rangeLength = hasRange() ? cover.rangeEnd - cover.rangeStart : 4 * blockLen();
+  // keep the range's length (the whole song, unless you trimmed it); fixRange stops it at the end of the video
+  const rangeLength = hasRange() ? cover.rangeEnd - cover.rangeStart : duration;
   cover.one1 = t; cover.oneT = t;
   if (cover.one2 != null && Math.abs(cover.one2 - t) >= C * cover.period * 0.9){
     cover.oneBeats = eightCountsBetween(t, cover.one2, cover.period, C) * C;   // a later 1 is already marked: re-lock
@@ -666,7 +650,7 @@ function markFirstOne(){
 function markLaterOne(){
   if (!hasGrid() || !playerReady || adPlaying) return;
   const t = currentTime(), C = counts();
-  if (cover.one1 == null){ $('#oneStatus').textContent = 'Mark the 1 where your part starts first (step 2).'; return; }
+  if (cover.one1 == null){ $('#oneStatus').textContent = 'Mark the 1 where the dance starts first (step 2).'; return; }
   if (Math.abs(t - cover.one1) < C * cover.period * 0.9){
     $('#oneStatus').textContent = 'That is less than one 8-count away. Skip further ahead and try again.';
     return;
@@ -865,8 +849,13 @@ function markPlaying(){
 function updateSessionUI(){
   if (!hasRange()) return;
   const nb = blocks().length, s = session;
+  const resume = s ? null : resumePoint();
   let title, sub, main, progress = 0;
-  if (!s){
+  if (!s && resume){
+    title = 'Welcome back';
+    sub = 'Last time you got to ' + stepLabel(resume.step) + ' at ' + rateLabel(resume.step.rate) + '.';
+    main = 'Continue from ' + stepLabel(resume.step);
+  } else if (!s){
     title = 'Ready when you are';
     sub = nb + ' block' + (nb > 1 ? 's' : '') + ': ' + ladderText(settings.blockSteps) +
       (settings.connectOn && nb > 1 ? '. Every ' + groupSize(settings) + ' blocks, together: ' + ladderText(settings.connectSteps) : '') +
@@ -896,6 +885,10 @@ function updateSessionUI(){
   $('#sPrev').disabled = !canMove || (block ? block <= 1 : false);
   $('#sNext').disabled = !canMove || (block ? block >= nb : !(span && span[1] < nb));
   $('#sRestart').disabled = !s || s.done;
+  $('#sFromStart').hidden = !resume;
+  // Again redoes the run playing or the one just finished; Got it moves on
+  $('#sAgain').disabled = $('#mAgain').disabled = !s || (!s.running && !s.lastRun);
+  $('#sGot').disabled = $('#mGot').disabled = !s || s.done;
   $('#mSub').textContent = s && !s.done ? title + ' · ' + sub : title;
   $('#fsStat').textContent = s && !s.done ? title + ' · ' + sub : '';
   $('#mMain').textContent = main;
@@ -922,7 +915,7 @@ function renderHome(){
   $('#recentCard').hidden = !ids.length;
   $('#recent').innerHTML = ids.map(id => {
     const v = store.videos[id];
-    const status = v.period ? (60 / v.period).toFixed(0) + ' BPM' + (v.rangeStart != null ? ' · range chosen' : '') : 'beat not set yet';
+    const status = !v.period ? 'beat not set yet' : (60 / v.period).toFixed(0) + ' BPM' + (v.resume ? ' · got to ' + v.resume.label : '');
     return '<li><button class="open" data-id="' + id + '"><span class="t">' + escapeHtml(v.title || id) + '</span><span class="muted small">' + status + '</span></button>' +
       '<button class="ghost" data-del="' + id + '" aria-label="Remove this cover">✕</button></li>';
   }).join('');
@@ -1052,6 +1045,11 @@ function wireTrim(){
   }
   $('#tTrack').addEventListener('pointerdown', e => { if (!e.target.closest('.tHead') && duration) seek(tFromX(e.clientX)); });
   $('#zoomBtn').addEventListener('click', () => { if (!hasRange()) return; zoomed = !zoomed; if (zoomed) setZoomView(); updateTrim(); });
+  $('#wholeBtn').addEventListener('click', () => {
+    if (!hasGrid() || !duration) return;
+    grid.setWholeSong(cover, counts(), duration);
+    fixRange(); zoomed = false; updateRangeUI(); commitRange(cover.rangeStart);
+  });
   $('#rsNow').addEventListener('click', () => setRangeEdgeToNow('s'));
   $('#reNow').addEventListener('click', () => setRangeEdgeToNow('e'));
   $('.nudges').addEventListener('click', e => {
@@ -1107,6 +1105,9 @@ function wirePracticeTab(){
   // session buttons (the card, and the mini bar in full screen)
   $('#sMain').addEventListener('click', onMainButton);
   $('#mMain').addEventListener('click', onMainButton);
+  $('#sFromStart').addEventListener('click', startFromBeginning);
+  for (const id of ['#sAgain', '#mAgain']) $(id).addEventListener('click', again);
+  for (const id of ['#sGot', '#mGot']) $(id).addEventListener('click', gotIt);
   for (const [cardId, miniId, dir] of [['#sPrev', '#mPrev', -1], ['#sNext', '#mNext', 1]]){
     for (const id of [cardId, miniId]) $(id).addEventListener('click', () => {
       const block = currentBlockNum(), span = currentSpan();
@@ -1133,6 +1134,8 @@ function wireKeyboard(){
     else if (k === 't') tap();
     else if (k === 'm') setMirror(!settings.mirror);
     else if (k === 'f') toggleFs();
+    else if (k === 'a') again();
+    else if (k === 'g') gotIt();
     else if (k === 'escape' && fsOn && fsFallback) toggleFs();
     else if (k === 'arrowleft' || k === 'arrowright'){
       if (el.classList && el.classList.contains('tHead')) return;   // the trim handles use the arrows themselves
@@ -1159,6 +1162,7 @@ function wireDebugPanel(){
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
 wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel();
+setupInstall(log);
 renderSteps(); syncControls(); renderHome();
 requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');

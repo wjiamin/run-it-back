@@ -86,5 +86,21 @@ export function planCountIn(step, lead, period){
   return n >= 1 ? {from, preRoll: true, countIn: n} : {from: step.s, preRoll: false, countIn: 0};
 }
 
+/**
+ * Where to continue a plan from saved progress (see storage.js, cover.resume).
+ * The progress only counts if the trimmed range and counts per block haven't changed (within half a beat, so a small
+ * timing nudge keeps it). Finds the same part at the same speed, else the same part.
+ * @param saved {part, rate, counts, rangeStart, rangeEnd}
+ * @param now   {s, e, counts, period} the current range, counts per block and seconds per beat
+ * @returns the step index, or -1
+ */
+export function resumeIndex(plan, saved, now){
+  if (!saved || saved.counts !== now.counts) return -1;
+  const tolerance = now.period / 2;
+  if (Math.abs(saved.rangeStart - now.s) > tolerance || Math.abs(saved.rangeEnd - now.e) > tolerance) return -1;
+  const sameSpeed = plan.findIndex(st => st.part === saved.part && st.rate === saved.rate);
+  return sameSpeed >= 0 ? sameSpeed : plan.findIndex(st => st.part === saved.part);
+}
+
 /** The number to show on count-in beat i (from 0): with a 4-count count-in of 8 counts, 5, 6, 7, 8. */
 export const countInNumber = (countIn, i, counts) => ((counts - countIn + i) % counts + counts) % counts + 1;

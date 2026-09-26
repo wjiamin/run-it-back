@@ -3,7 +3,8 @@
 import {parseYouTubeId, fmtTime, fmtTimePrecise} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, planCountIn, countInNumber, ladderText} from './plan.js';
+import {buildPlan, planCountIn, countInNumber, ladderText, resumeIndex} from './plan.js';
+import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION} from './storage.js';
 
 const results = [];
@@ -92,13 +93,22 @@ test('blocks: 32 counts make four 8-count blocks; 33 make five', () => {
   c.rangeEnd = 26.5;
   eq(grid.blocks(c, 8).length, 5);
 });
-test('fixRange: first range is 4 blocks, and ranges stay inside the video', () => {
+test('fixRange: the first range is the whole song, and ranges stay inside the video', () => {
   const c = {anchor: 0.3, period: 0.5, rangeStart: null, rangeEnd: null};
   grid.fixRange(c, 8, 120);
-  eq([c.rangeStart, c.rangeEnd], [0.3, 16.3]);
+  eq([c.rangeStart, c.rangeEnd], [0.3, 119.8], 'whole song');
   c.rangeStart = 50.1; c.rangeEnd = 500;
   grid.fixRange(c, 8, 120);
-  eq([c.rangeStart, c.rangeEnd], [50.3, 119.8]);
+  eq([c.rangeStart, c.rangeEnd], [50.3, 119.8], 'clamped');
+});
+test('whole song starts at the first 1 of the video, or at the marked start of the dance', () => {
+  const c = {anchor: 10, period: 0.5, oneT: 10};          // a 1 at 0:10, so 1s every 4 s: 2, 6, 10 …
+  grid.setWholeSong(c, 8, 120);
+  eq([c.rangeStart, c.rangeEnd], [2, 120], 'first 1 in the video');
+  c.one1 = 10;                                            // the dance starts at 0:10
+  grid.setWholeSong(c, 8, 120);
+  eq(c.rangeStart, 10, 'the marked start');
+  eq(grid.countOfBeat(c, 8, grid.nearestBeat(c, c.rangeStart)), 1, 'starts on a 1');
 });
 
 /* ---- plan ---- */
@@ -136,6 +146,104 @@ test('count-in: none, and the numbers shown', () => {
   eq(planCountIn({s: 10, e: 14}, 0, 0.5), {from: 10, preRoll: false, countIn: 0});
   eq([0, 1, 2, 3].map(i => countInNumber(4, i, 8)), [5, 6, 7, 8]);
   eq([0, 1].map(i => countInNumber(2, i, 8)), [7, 8]);
+});
+
+/* ---- continue where you left off ---- */
+const twoBlockPlan = () => buildPlan(planSettings({connectOn: false}), blocks5.slice(0, 2), {s: 4, e: 12}, 'all');   // b1@0.5 b1@1 b2@0.5 b2@1 full@1
+const here = {s: 4, e: 12, counts: 8, period: 0.5};
+test('resume: finds the same part at the same speed', () => {
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 4, rangeEnd: 12}, here), 3);
+});
+test('resume: same part if that speed is gone, and nothing if the range or counts changed', () => {
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 0.6, counts: 8, rangeStart: 4, rangeEnd: 12}, here), 2, 'speed gone');
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 4.2, rangeEnd: 12}, here), 3, 'small nudge keeps it');
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 8, rangeEnd: 12}, here), -1, 'range changed');
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 4, rangeStart: 4, rangeEnd: 12}, here), -1, 'counts changed');
+  eq(resumeIndex(twoBlockPlan(), null, here), -1, 'nothing saved');
+});
+
+/* ---- the practice session, with a pretend player and clock ---- */
+function fakeSession(plan, settings = {}){
+  const timers = [], events = [];
+  const env = {
+    settings: Object.assign({leadStart: 0, leadRepeat: 0, rest: 1, auto: true}, settings),
+    period: () => 0.5,
+    seek: t => events.push('seek ' + t), play: () => {}, pause: () => {},
+    onStep: st => events.push('step ' + st.part + '@' + st.rate), onFinish: () => events.push('finish'), onChange: () => {},
+    log: () => {}, now: () => 0,
+    setTimer: (fn, ms) => timers.push(fn), clearTimer: () => {},
+  };
+  const s = new Practice(plan, 'all', 0, env);
+  const where = () => s.done ? 'done' : s.step.part + '@' + s.step.rate + ' rep ' + (s.rep + 1) + (s.pausing ? ' (pause)' : '') + (s.waiting ? ' (waiting)' : '');
+  const finishRun = () => s.segmentEnd();                           // the playhead reached the end of the part
+  const endPause = () => { const fn = timers.shift(); if (fn) fn(); };
+  return {s, events, where, finishRun, endPause};
+}
+const repsPlan = () => buildPlan(planSettings({connectOn: false, fullAfter: false, blockSteps: [{rate: 0.5, on: true, reps: 2}, {rate: 1, on: true, reps: 2}]}),
+  blocks5.slice(0, 2), {s: 4, e: 12}, 'all');   // b1@0.5 ×2, b1@1 ×2, b2@0.5 ×2, b2@1 ×2
+
+test('practice: runs, pauses and steps in order', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start();
+  eq(f.where(), 'b1@0.5 rep 1');
+  f.finishRun(); eq(f.where(), 'b1@0.5 rep 2 (pause)');
+  f.endPause(); eq(f.where(), 'b1@0.5 rep 2');
+  f.finishRun(); eq(f.where(), 'b1@1 rep 1 (pause)');
+  f.endPause(); f.finishRun(); f.endPause(); f.finishRun(); f.endPause();
+  eq(f.where(), 'b2@0.5 rep 1');
+});
+test('practice: waits for you between parts when "move on automatically" is off', () => {
+  const f = fakeSession(repsPlan(), {auto: false});
+  f.s.start();
+  for (let i = 0; i < 3; i++){ f.finishRun(); f.endPause(); }
+  f.finishRun();
+  eq(f.where(), 'b2@0.5 rep 1 (waiting)');
+  f.s.continueNow(); eq(f.where(), 'b2@0.5 rep 1');
+});
+test('Again while playing restarts the run, and it does not count', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun(); f.endPause();                     // on rep 2
+  f.s.again(); eq(f.where(), 'b1@0.5 rep 2');
+  eq(f.events.filter(e => e.startsWith('seek')).length, 3, 'seeks (start, rep 2, again)');
+});
+test('Again in the pause redoes the run that just finished', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun();                                   // rep 1 done, pausing before rep 2
+  f.s.again(); eq(f.where(), 'b1@0.5 rep 1');
+  f.finishRun(); f.endPause(); eq(f.where(), 'b1@0.5 rep 2');
+});
+test('Again after a step ends goes back to that step, at its speed', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun(); f.endPause(); f.finishRun();      // b1@0.5 finished, pausing before b1@1
+  f.s.again(); eq(f.where(), 'b1@0.5 rep 2');
+  eq(f.events.slice(-2)[0], 'step b1@0.5', 'the speed is set again');
+});
+test('Again after the end replays the last run', () => {
+  const f = fakeSession(repsPlan().slice(0, 1));                // one step, 2 reps
+  f.s.start(); f.finishRun(); f.endPause(); f.finishRun();
+  eq(f.where(), 'done');
+  f.s.again(); eq(f.where(), 'b1@0.5 rep 2');
+});
+test('Got it skips the rest of this speed', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start();
+  f.s.gotIt(); eq(f.where(), 'b1@1 rep 1');
+  f.s.gotIt(); eq(f.where(), 'b2@0.5 rep 1');
+});
+test('Got it in the pause before a new step just starts it', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun(); f.endPause(); f.finishRun();      // pausing before b1@1
+  f.s.gotIt(); eq(f.where(), 'b1@1 rep 1');
+});
+test('Got it on the last step finishes the plan', () => {
+  const f = fakeSession(repsPlan().slice(0, 1));
+  f.s.start(); f.s.gotIt();
+  eq(f.where(), 'done'); eq(f.events.slice(-1)[0], 'finish');
+});
+test('a stopped session ignores its pause timer', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun(); f.s.stop(); f.endPause();
+  eq(f.s.pausing, true, 'still in the pause: the timer did nothing');
 });
 
 /* ---- storage ---- */

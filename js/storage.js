@@ -9,6 +9,8 @@
        rangeStart, rangeEnd                    the trimmed part to learn, on beats
        oneT                                    a marked 1 that the counts follow
        one1, one2, oneBeats                    the two marked 1s and the beats between them (0 when not locked)
+       resume                                  where practice stopped, to continue next time:
+                                               {part, rate, label, counts, rangeStart, rangeEnd} (see plan.js resumeIndex)
    The field names are kept short and unchanged so older saves keep loading. */
 
 // the key still says "coverLearner" (the app's first name), so covers saved before the rename still load
