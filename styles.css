@@ -1,0 +1,196 @@
+/* Run It Back styles. Colours are tokens on :root (light) with a dark-mode override; sections follow the page from top to bottom. */
+:root{
+  --bg:#f5f5f8;--panel:#fff;--panel2:#eef0f5;--line:#dcdfe8;--text:#16181f;--muted:#5f6675;
+  --accent:#e6317a;--accent-ink:#fff;--ok:#1a9d63;--warn:#b7791f;--shadow:0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1015;--panel:#171a21;--panel2:#20242e;--line:#2b303c;--text:#eef0f5;--muted:#9aa3b3;
+  --accent:#ff5c9a;--accent-ink:#1a0b13;--ok:#3ecf8e;--warn:#e8b04a;--shadow:none}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:env(safe-area-inset-bottom)}
+body.noscroll{overflow:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{max-width:760px;margin:0 auto;padding:0 16px 40px}
+body.pm .app{max-width:1920px}
+.top{display:flex;align-items:center;gap:8px;padding:12px 0 10px}
+.top h1{font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;min-width:40px;height:40px;padding:0 12px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;min-height:40px;padding:6px 14px}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
+.btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.ico{background:var(--panel2);border:1px solid var(--line);border-radius:8px;width:30px;height:34px;padding:0;font-size:14px;line-height:1}
+.ico:disabled{opacity:.35}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-top:12px}
+.card h2{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+input[type=number]{width:60px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 6px;min-height:36px}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);margin:0;flex:none}
+input[type=range]{accent-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* home */
+.recent{list-style:none;margin:0;padding:0}
+.recent li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
+.recent li:first-child{border-top:0}
+.recent .open{flex:1;text-align:left;background:none;border:0;padding:12px 0;min-width:0}
+.recent .t{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.err{color:var(--warn);margin:8px 0 0;font-size:14px}
+
+/* player layout: video first, big */
+.stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:14px}
+#playerWrap{position:absolute;pointer-events:none}
+#playerWrap.mirror{transform:scaleX(-1)}
+#playerWrap iframe{width:100%;height:100%;border:0;display:block}
+.mask{position:absolute;left:0;right:0;background:#000;z-index:2;pointer-events:none}
+#maskT{top:0}#maskB{bottom:0}
+.stageMsg{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:20px;background:rgba(0,0,0,.7);font-size:14px}
+/* phones (and any short window, like a phone on its side): the video sits full width at the top and stays there while you scroll */
+@media (max-width:899px), (max-height:599px){
+  .vcol{position:sticky;top:0;z-index:6;background:var(--bg);margin:0 -16px;padding-bottom:6px}
+  .vcol .stage{border-radius:0}
+  #ctlMainHome{padding:0 16px}
+}
+/* on its side, the full-width video would be taller than the screen: cap it so the count and controls fit, and let it
+   scroll away normally (a sticky video would cover the whole screen and hide the panels) */
+@media (orientation:landscape) and (max-height:599px){
+  .vcol{position:relative}
+  .vcol .stage:not(.fs){aspect-ratio:auto;height:calc(100vh - 165px);height:calc(100dvh - 165px)}
+}
+@media (min-width:900px) and (min-height:600px){
+  /* computer: the video takes everything except a 360px control column, as big as the window height allows */
+  body.pm .app{padding:0 24px 24px}
+  .playerGrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+  .vcol{position:sticky;top:8px}
+  .stage{width:min(100%,calc((100vh - 150px)*16/9));margin:0 auto}
+  .pcol{max-height:calc(100vh - 70px);overflow-y:auto;padding-right:4px}
+  body.pm .top{padding:8px 0 6px}
+}
+
+/* controls (move into the stage in full screen) */
+.count{display:flex;align-items:center;gap:12px;margin-top:8px}
+.count .num{font-size:36px;font-weight:700;line-height:1;width:40px;text-align:center;font-variant-numeric:tabular-nums}
+.count .segs{flex:1;display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.count .segs i{height:10px;border-radius:5px;background:var(--panel2);border:1px solid var(--line)}
+.count .segs i.on{background:var(--accent);border-color:var(--accent)}
+.count .segs i.one.on{background:var(--ok);border-color:var(--ok)}
+.count .lbl{min-width:80px;text-align:right;font-size:13px;color:var(--muted)}
+.bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.bar input[type=range]{flex:1;min-width:0}
+.time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{background:var(--panel2);border:0;border-right:1px solid var(--line);padding:6px 10px;min-height:38px;font-size:14px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg button:disabled{opacity:.5;cursor:default}
+#ctlOpts{margin-top:10px}
+.miniSess{display:none;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
+.miniSess .ms{flex:1;min-width:120px;font-size:13px}
+
+/* full screen: the video fills the screen. Controls are one slim row that fades out while playing; speed, mirror and the
+   practice buttons sit behind the ⋯ button, and the count is a small chip in the corner that stays visible. */
+.fsBar,.fsCount,#moreBtn{display:none}
+.stage.fs{position:relative;width:100%;height:100%;max-height:none;aspect-ratio:auto;border-radius:0;margin:0}
+.stage.fs.pseudo{position:fixed;inset:0;z-index:100;width:auto;height:auto}
+/* the video column is its own layer (it is sticky), so lift the whole column above the control panel while full screen */
+body.fsmode .vcol{z-index:150}
+.stage.fs .fsBar{display:block;position:absolute;left:0;right:0;bottom:0;z-index:5;
+  padding:14px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;transition:opacity .25s;
+  --text:#fff;--muted:#d3d7e0;--panel2:rgba(255,255,255,.18);--line:rgba(255,255,255,.3)}
+.stage.fs.idle .fsBar{opacity:0;pointer-events:none}
+.stage.fs.idle{cursor:none}
+.stage.fs #ctlMain .bar{margin-top:0}
+.stage.fs #moreBtn{display:inline-flex;align-items:center;justify-content:center}
+.stage.fs #ctlOpts{display:none;margin-top:0;margin-bottom:8px}
+.stage.fs.more #ctlOpts{display:flex}
+.stage.fs .miniSess{display:flex}
+.stage.fs .fsCount{display:block;position:absolute;z-index:5;top:calc(8px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
+  max-width:60%;text-align:right;color:#fff;background:rgba(0,0,0,.42);border-radius:12px;padding:4px 12px;
+  --text:#fff;--muted:#e3e6ee;--panel2:rgba(255,255,255,.2);--line:rgba(255,255,255,.3)}
+.stage.fs .fsCount{width:min(520px,62%)}
+@media (max-width:599px){ .stage.fs .fsCount{width:auto;max-width:none;left:calc(12px + env(safe-area-inset-left))} }
+.stage.fs .fsCount .count{margin:0;gap:10px}
+.stage.fs .fsCount .count .num{font-size:30px;width:auto;min-width:28px}
+.stage.fs .fsCount .count .segs i{height:12px}
+.stage.fs .fsCount .count .lbl{min-width:0;white-space:nowrap}
+/* beat check: a ring that flashes on every count, green on the 1 */
+.flash{position:absolute;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 0 6px var(--accent);opacity:0;transition:opacity .12s ease-out}
+.flash.on{opacity:.9;transition:none}
+.flash.one{box-shadow:inset 0 0 0 10px var(--ok)}
+.count .num.pulse{color:var(--accent)}
+.twoOnes .status{font-size:14px;margin-top:10px}
+.twoOnes .status b{font-variant-numeric:tabular-nums}
+.fsStat{font-size:11px;opacity:.9;line-height:1.2}
+.stage.fs.ad .fsBar{top:0;bottom:auto;padding:8px calc(12px + env(safe-area-inset-right)) 14px calc(12px + env(safe-area-inset-left));background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,0))}
+/* a clear layer over the video: tapping the picture (including YouTube's own big play button) plays or pauses */
+.shield{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.stage.ad .shield{display:none}
+.stage.ad #playerWrap{pointer-events:auto;transform:none}
+.stage.ad .mask{display:none}
+.adNote{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.35}
+.stage.fs .adNote{color:#fff}
+
+.tabs{display:flex;gap:6px;margin-top:14px}
+.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:42px;font-weight:600}
+.tabs button[aria-selected=true]{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* beats */
+.tap{width:100%;min-height:110px;font-size:22px;font-weight:700;border-radius:16px;border:2px solid var(--accent);background:var(--panel2);touch-action:manipulation}
+.tap:active,.tap.hit{background:var(--accent);color:var(--accent-ink)}
+.bpm{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+ol.steps{margin:0 0 4px;padding-left:20px;color:var(--muted);font-size:14px}
+ol.steps li{margin:2px 0}
+
+/* trim window */
+.tTrack{position:relative;height:64px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+.tIn{position:absolute;left:16px;right:16px;top:0;bottom:0}
+.tSel{position:absolute;top:0;bottom:0;background:rgba(230,49,122,.2);border-top:4px solid var(--accent);border-bottom:4px solid var(--accent);box-shadow:0 0 0 200vmax rgba(0,0,0,.32);pointer-events:none}
+.tTick{position:absolute;top:10px;bottom:10px;width:1px;background:var(--accent);opacity:.55;pointer-events:none}
+.tHead{position:absolute;top:0;bottom:0;width:20px;margin-left:-10px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:ew-resize;touch-action:none;z-index:2}
+.tHead::before{content:'';position:absolute;top:-6px;bottom:-6px;left:-12px;right:-12px}
+.tHead::after{content:'';width:3px;height:26px;border-radius:2px;background:var(--accent-ink);opacity:.85}
+.tHead.drag{filter:brightness(1.15)}
+.tPlay{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--text);opacity:.85;pointer-events:none;z-index:1}
+.tLbl{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tLbl b{color:var(--text)}
+.nudges{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.nudges .g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* plan */
+.stepsHead{display:grid;grid-template-columns:22px 1fr;gap:10px;font-size:12px;color:var(--muted);margin-bottom:4px}
+.srow{display:flex;align-items:center;gap:8px;margin-top:8px}
+.srow .num{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+.srow .mv{display:flex;gap:4px;margin-left:auto}
+.opt{display:flex;align-items:center;gap:10px;margin-top:12px}
+.opt label{flex:1}
+.sess .title{font-size:20px;font-weight:700}
+.prog{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:12px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;min-height:52px}
+.chip b{display:block;font-size:16px}
+.chip span{font-size:11px;color:var(--muted)}
+.chip.playing{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.playing span{color:var(--accent-ink)}
+.cue{position:absolute;left:14px;top:8px;z-index:3;font-size:clamp(44px,9vw,96px);font-weight:800;line-height:1;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.75);pointer-events:none;font-variant-numeric:tabular-nums}
+.cgrp{margin-top:12px}
+.cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.cgrp .chips{margin-top:0}
+.chip.conn{border-style:dashed;border-color:var(--accent)}
+/* debug log panel */
+.dbgPanel{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;padding:12px}
+.dbgBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(760px,100%);max-height:100%;margin:auto;display:flex;flex-direction:column;gap:10px}
+.dbgBox h2{margin:0;font-size:16px}
+.dbgBox textarea{flex:1;min-height:220px;height:55vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px;resize:none;white-space:pre}
+[hidden]{display:none!important}
