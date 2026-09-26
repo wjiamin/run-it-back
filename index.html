@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Run It Back</title>
 <link rel="stylesheet" href="styles.css">
+<!-- installing to the home screen (see js/pwa.js and sw.js) -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#f5f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1015" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Run It Back">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 <div id="safeProbe" aria-hidden="true" style="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"></div>
@@ -45,10 +55,17 @@
       <h2>How it works</h2>
       <ol class="steps">
         <li>Load the video. It plays mirrored, with speed control, and goes full screen.</li>
-        <li>Tap along to the beat once so the app can count for you.</li>
-        <li>Trim the part you want to learn. The app cuts it into 8-count blocks.</li>
+        <li>Set the beat: a rough tempo, then mark two 1s so the app can count for you.</li>
+        <li>It learns the whole song in 8-count blocks, or trim it to just a part.</li>
         <li>Press Start. Each block starts on a 5-6-7-8 count-in and plays slow, then faster, then full speed, with a short pause after each run. Every few blocks are connected together, and then the whole section runs with the music.</li>
+        <li>Messed up a run? Press <b>Again</b>. Got it already? Press <b>Got it</b> to move on. Next time, you can continue where you left off.</li>
       </ol>
+    </div>
+
+    <div id="installCard" class="card" hidden>
+      <h2>Use it like an app</h2>
+      <p id="iosInstallTip" class="muted small" style="margin:0" hidden>On iPhone or iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, without Safari's bars, and starts even when you're offline.</p>
+      <div class="row"><button id="installBtn" class="btn primary" hidden>Install app</button></div>
     </div>
   </section>
 
@@ -99,9 +116,11 @@
             <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press Skip">Ad?</button>
             <div class="miniSess" id="miniSess">
               <span class="ms" id="mSub"></span>
+              <button id="mAgain" class="btn sm" aria-label="Again: redo this run">↺</button>
               <button id="mPrev" class="btn sm" aria-label="Previous block">◀</button>
               <button id="mMain" class="btn sm primary">Start</button>
               <button id="mNext" class="btn sm" aria-label="Next block">▶</button>
+              <button id="mGot" class="btn sm" aria-label="Got it: move on">✓</button>
             </div>
           </div>
         </div>
@@ -128,7 +147,7 @@
             </div>
           </div>
           <div class="card twoOnes">
-            <h2>Step 2 · Mark the 1 where your part starts</h2>
+            <h2>Step 2 · Mark the 1 where the dance starts</h2>
             <p class="muted small" style="margin:0 0 10px">Play to the first count of the choreography and press the button. Most exact: pause right on the 1, step with the arrows below, then press.</p>
             <div class="row"><button id="markOne1" class="btn primary" disabled>This is a 1</button></div>
             <h2 style="margin-top:16px">Step 3 · Mark a later 1</h2>
@@ -174,8 +193,9 @@
           <div id="pMsg" class="card muted"></div>
           <div id="pBody" hidden>
             <div class="card">
-              <div class="row between"><h2 style="margin:0">Trim what to learn</h2><button id="zoomBtn" class="btn sm" aria-pressed="false">Zoom to selection</button></div>
-              <p class="muted small" style="margin:4px 0 10px">Drag the two pink handles. Tap the bar to jump, then use the buttons to set a handle to the playhead.</p>
+              <div class="row between"><h2 style="margin:0">Trim what to learn</h2>
+                <span class="row"><button id="wholeBtn" class="btn sm" title="Learn the whole song again, from your marked 1 to the end">Whole song</button><button id="zoomBtn" class="btn sm" aria-pressed="false">Zoom to selection</button></span></div>
+              <p class="muted small" style="margin:4px 0 10px">It starts as the whole song. To learn just a part, drag the two pink handles, or tap the bar to jump and set a handle to the playhead.</p>
               <div class="tTrack" id="tTrack">
                 <div class="tIn" id="tIn">
                   <div class="tSel" id="tSel"></div>
@@ -198,11 +218,18 @@
               <div class="prog"><i id="sProg"></i></div>
               <div class="row">
                 <button id="sMain" class="btn primary">Start practice</button>
+                <button id="sAgain" class="btn" title="Redo this run. It doesn't count. (A)">↺ Again</button>
+                <button id="sGot" class="btn" title="Skip the rest of this speed and move on. (G)">✓ Got it</button>
+              </div>
+              <div class="row" style="margin-top:8px">
                 <button id="sPrev" class="btn sm">◀ Block</button>
                 <button id="sRestart" class="btn sm">Restart this part</button>
                 <button id="sNext" class="btn sm">Block ▶</button>
               </div>
-              <div class="row" style="margin-top:8px"><button id="sFull" class="btn sm">Run the whole section only</button></div>
+              <div class="row" style="margin-top:8px">
+                <button id="sFromStart" class="btn sm" hidden>Start from the beginning</button>
+                <button id="sFull" class="btn sm">Run the whole section only</button>
+              </div>
               <div class="chips" id="chips"></div>
             </div>
 

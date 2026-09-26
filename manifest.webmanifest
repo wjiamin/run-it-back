@@ -1,0 +1,16 @@
+{
+  "name": "Run It Back",
+  "short_name": "Run It Back",
+  "description": "Learn K-pop dance covers faster: mirror, slow down, count-in and loop 8-count blocks.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1015",
+  "theme_color": "#0e1015",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
