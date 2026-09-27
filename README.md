@@ -9,7 +9,8 @@ A small web app for learning K-pop dance covers faster from a YouTube practice v
 - Each block starts on a 5-6-7-8 count-in and runs through your speeds (slow, faster, full speed), with a short pause after each run
 - Every few blocks are connected together, then the whole section runs with the music
 - Speeds, repeats, count-ins, pauses and block sizes are all adjustable
-- Again redoes a run, Got it moves on, and next time you can continue where you left off
+- As you add blocks, everything learned so far runs from the top (1–2, then 1–3, then 1–4…)
+- Again redoes a run, Next skips to the next speed, and next time you can continue where you left off
 - Install it to your home screen: it opens full screen and starts offline
 
 Everything runs in your browser. Your covers and settings are saved on your own device only.
@@ -25,8 +26,8 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, and keeping the page up to date |
 | `js/beats.js` | Working out the tempo, from taps or from two marked 1s |
 | `js/grid.js` | The beat grid: beats, counts, blocks and the trimmed range |
-| `js/plan.js` | The practice plan (which part at which speed, in what order), count-ins, and where to continue |
-| `js/practice.js` | The practice session: runs, pauses, count-ins, Again and Got it |
+| `js/plan.js` | The practice plan (blocks, connected runs, from-the-top runs, the whole section, at which speeds), count-ins, and where to continue |
+| `js/practice.js` | The practice session: runs, pauses, count-ins, Again and skipping ahead |
 | `js/storage.js` | Saving on the device, and upgrading older saves |
 | `js/log.js` | The private debug log behind the Log button |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
