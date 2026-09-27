@@ -22,8 +22,11 @@ export const defaultPlan = () => ({
   blockSteps: [{rate: 0.5, on: true, reps: 3}, {rate: 0.75, on: true, reps: 3}, {rate: 1, on: true, reps: 3}],
   connectSteps: [{rate: 0.75, on: true, reps: 2}, {rate: 1, on: true, reps: 2}],
   fullSteps: [{rate: 0.75, on: true, reps: 2}, {rate: 1, on: true, reps: 3}],
+  topSteps: [{rate: 1, on: true, reps: 1}],
   connectOn: true,     // connect blocks together as you go
   group: 4,            // blocks in each connected run
+  topOn: true,         // run everything learned so far from the top as you add blocks
+  topEvery: 1,         // ...after every this many new blocks
   fullAfter: true,     // run the whole section after the blocks
   auto: true,          // move on to the next part without waiting
   musicBlocks: true,   // sound during block drills

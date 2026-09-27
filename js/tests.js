@@ -133,6 +133,20 @@ test('plan: everything off still plays each block once', () => {
   const s = planSettings({connectOn: false, fullAfter: false}); s.blockSteps.forEach(x => x.on = false);
   eq(parts(buildPlan(s, blocks5.slice(0, 2), {s: 4, e: 12}, 'all')), 'b1@1 b2@1');
 });
+test('from the top after every new block, skipping repeats of connected runs and of the whole section', () => {
+  const s = planSettings({topOn: true, topEvery: 1, topSteps: speeds([1])});
+  eq(parts(buildPlan(s, blocks5, {s: 4, e: 24}, 'all')),
+    'b1@0.5 b1@1 b2@0.5 b2@1 c0@1 b3@0.5 b3@1 t3@1 b4@0.5 b4@1 c1@1 t4@1 b5@0.5 b5@1 full@1');
+});
+test('from the top every 2 blocks, without connecting', () => {
+  const s = planSettings({connectOn: false, topOn: true, topEvery: 2, blockSteps: speeds([1]), topSteps: speeds([0.75, 1])});
+  eq(parts(buildPlan(s, blocks5, {s: 4, e: 24}, 'all')), 'b1@1 b2@1 t2@0.75 t2@1 b3@1 b4@1 t4@0.75 t4@1 b5@1 full@1');
+});
+test('a from-the-top step runs from the first block to the newest', () => {
+  const s = planSettings({connectOn: false, fullAfter: false, topOn: true, topEvery: 1, blockSteps: speeds([1]), topSteps: speeds([1])});
+  const top = buildPlan(s, blocks5.slice(0, 3), {s: 4, e: 16}, 'all').find(st => st.part === 't3');
+  eq([top.kind, top.a, top.b, top.s, top.e], ['top', 1, 3, 4, 16]);
+});
 test('ladderText', () => { eq(ladderText([{rate: 0.5, on: true, reps: 3}, {rate: 1, on: false, reps: 1}]), '0.5× ×3'); eq(ladderText([]), 'none'); });
 
 /* ---- count-in ---- */
@@ -224,21 +238,32 @@ test('Again after the end replays the last run', () => {
   eq(f.where(), 'done');
   f.s.again(); eq(f.where(), 'b1@0.5 rep 2');
 });
-test('Got it skips the rest of this speed', () => {
+test('Skip goes to the next speed', () => {
   const f = fakeSession(repsPlan());
   f.s.start();
-  f.s.gotIt(); eq(f.where(), 'b1@1 rep 1');
-  f.s.gotIt(); eq(f.where(), 'b2@0.5 rep 1');
+  f.s.skip(); eq(f.where(), 'b1@1 rep 1');
+  f.s.skip(); eq(f.where(), 'b2@0.5 rep 1');
 });
-test('Got it in the pause before a new step just starts it', () => {
+test('Skip in the pause before a new step just starts it', () => {
   const f = fakeSession(repsPlan());
   f.s.start(); f.finishRun(); f.endPause(); f.finishRun();      // pausing before b1@1
-  f.s.gotIt(); eq(f.where(), 'b1@1 rep 1');
+  f.s.skip(); eq(f.where(), 'b1@1 rep 1');
 });
-test('Got it on the last step finishes the plan', () => {
+test('Skip on the last step finishes the plan', () => {
   const f = fakeSession(repsPlan().slice(0, 1));
-  f.s.start(); f.s.gotIt();
+  f.s.start(); f.s.skip();
   eq(f.where(), 'done'); eq(f.events.slice(-1)[0], 'finish');
+});
+test('the skip button knows where it goes', () => {
+  const f = fakeSession(repsPlan());
+  const target = () => { const t = f.s.skipTarget; return t && (t.from ? t.from.part + '@' + t.from.rate : '-') + ' → ' + (t.to ? t.to.part + '@' + t.to.rate : 'finish'); };
+  f.s.start();
+  eq(target(), 'b1@0.5 → b1@1', 'next speed of the same block');
+  f.s.skip(); eq(target(), 'b1@1 → b2@0.5', 'last speed: next block');
+  f.finishRun(); f.endPause(); f.finishRun();                   // b1@1 done, pausing before b2@0.5
+  eq(target(), 'b1@1 → b2@0.5', 'in the pause before b2: start it');
+  const g = fakeSession(repsPlan().slice(0, 1)); g.s.start();
+  eq((() => { const t = g.s.skipTarget; return t.to; })(), null, 'last step: finish');
 });
 test('a stopped session ignores its pause timer', () => {
   const f = fakeSession(repsPlan());

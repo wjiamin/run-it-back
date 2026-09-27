@@ -129,17 +129,27 @@ export class Practice {
   }
 
   /**
-   * Got it: skip the rest of this step (the remaining runs at this speed) and go on to the next step now.
+   * Where skip() goes, so the button can say so: {from, to} steps, with `to` null when it would finish the plan.
+   * Null when there is nothing to skip.
+   */
+  get skipTarget(){
+    if (this.done) return null;
+    if (this.waiting || (this.pausing && this.rep === 0)) return {from: this.plan[this.index - 1] || null, to: this.step};
+    return {from: this.step, to: this.plan[this.index + 1] || null};
+  }
+
+  /**
+   * Skip ahead: skip the rest of this step (the remaining runs at this speed) and go on to the next step now.
    * In the pause before a new step, or while waiting, it just starts that step.
    */
-  gotIt(){
+  skip(){
     const e = this.env;
     if (this.done) return;
     if (this.waiting || (this.pausing && this.rep === 0)) return this.continueNow();
     e.clearTimer(this.timer);
     this.lastRun = {index: this.index, rep: this.rep};
     this.pausing = false; this.rep = 0;
-    e.log('practice', 'got it: ' + stepLabel(this.step) + ' at ' + this.step.rate + 'x');
+    e.log('practice', 'skip: ' + stepLabel(this.step) + ' at ' + this.step.rate + 'x');
     if (!this.plan[this.index + 1]) return this.finish();
     this.index++;
     this.startStep(0);

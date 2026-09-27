@@ -1,14 +1,18 @@
 /* The practice plan: the ordered list of steps a practice session plays through.
 
    Order: every block at the block speeds; after each group of blocks (4 by default) that group run together at the
-   connect speeds; finally the whole trimmed section at the whole-section speeds.
+   connect speeds; after every N new blocks (1 by default) everything so far "from the top" at the from-the-top speeds;
+   finally the whole trimmed section at the whole-section speeds. For a range of 6 blocks in groups of 4:
+     b1 · b2 · top 1–2 · b3 · top 1–3 · b4 · connect 1–4 · b5 · top 1–5 · b6 · connect 5–6 · whole section
+   There is no top 1–4 (connect 1–4 just played it) and no top 1–6 (that is the whole section, which runs at the end).
 
    A step is {kind, part, s, e, rate, reps} plus, depending on kind:
      'block'    block      the block number
      'connect'  a, b       the first and last block of the group
+     'top'      a, b       from the first block to the newest one
      'full'                (the whole range)
-   `part` names what is being practised ('b3', 'c0', 'full'); consecutive steps with the same part are the same part at
-   different speeds. Pure functions: settings and blocks in, steps out. */
+   `part` names what is being practised ('b3', 'c0', 't5', 'full'); consecutive steps with the same part are the same part
+   at different speeds. Pure functions: settings and blocks in, steps out. */
 
 import {clamp, rateLabel} from './util.js';
 
@@ -17,6 +21,9 @@ export const enabledSteps = list => list.filter(x => x.on && x.reps > 0 && x.rat
 
 /** Blocks per connected run, kept between 2 and 8. */
 export const groupSize = settings => clamp(Math.round(settings.group) || 4, 2, 8);
+
+/** Run from the top after every this many new blocks, kept between 1 and 8. */
+export const topEvery = settings => clamp(Math.round(settings.topEvery) || 1, 1, 8);
 
 /**
  * @param settings  the saved settings (blockSteps, connectSteps, fullSteps, connectOn, fullAfter, group)
@@ -28,24 +35,34 @@ export function buildPlan(settings, blockList, range, mode){
   const blockSpeeds = enabledSteps(settings.blockSteps);
   const connectSpeeds = enabledSteps(settings.connectSteps);
   const fullSpeeds = enabledSteps(settings.fullSteps);
+  const topSpeeds = enabledSteps(settings.topSteps || []);
   const wantConnect = settings.connectOn && connectSpeeds.length > 0;
+  const wantTop = settings.topOn && topSpeeds.length > 0;
   const wantFull = settings.fullAfter && fullSpeeds.length > 0;
   const plan = [];
 
   if (mode !== 'full'){
-    const nb = blockList.length, G = groupSize(settings);
+    const nb = blockList.length, G = groupSize(settings), every = topEvery(settings);
     // with every block speed switched off, still play each block once, unless connected or whole runs will cover them
     const speeds = blockSpeeds.length ? blockSpeeds : (wantConnect || wantFull ? [] : [{rate: 1, reps: 1}]);
+    const start = blockList[0];
     for (let g = 0; g * G < nb; g++){
-      const group = blockList.slice(g * G, (g + 1) * G);
-      for (const b of group) for (const sp of speeds){
-        plan.push({kind: 'block', part: 'b' + b.n, block: b.n, s: b.s, e: b.e, rate: sp.rate, reps: sp.reps});
-      }
+      const group = blockList.slice(g * G, (g + 1) * G), first = group[0], last = group[group.length - 1];
       // a lone block needs no connecting, and neither does a group that is already the whole section (it gets its own run)
       const needsConnect = wantConnect && group.length >= 2 && !(group.length === nb && wantFull);
-      if (needsConnect) for (const sp of connectSpeeds){
-        const first = group[0], last = group[group.length - 1];
-        plan.push({kind: 'connect', part: 'c' + g, a: first.n, b: last.n, s: first.s, e: last.e, rate: sp.rate, reps: sp.reps});
+      for (const b of group){
+        for (const sp of speeds) plan.push({kind: 'block', part: 'b' + b.n, block: b.n, s: b.s, e: b.e, rate: sp.rate, reps: sp.reps});
+        if (b === last && needsConnect) for (const sp of connectSpeeds){
+          plan.push({kind: 'connect', part: 'c' + g, a: first.n, b: last.n, s: first.s, e: last.e, rate: sp.rate, reps: sp.reps});
+        }
+        // from the top: everything learned so far. Skipped when it would repeat the connected run just played (the first
+        // group), or when it is the whole section, which gets its own run at the end.
+        const dueFromTop = wantTop && b.n >= 2 && b.n % every === 0;
+        const repeatsConnect = b === last && needsConnect && first.n === 1;
+        const isWholeSection = b.n === nb && wantFull;
+        if (dueFromTop && !repeatsConnect && !isWholeSection) for (const sp of topSpeeds){
+          plan.push({kind: 'top', part: 't' + b.n, a: start.n, b: b.n, s: start.s, e: b.e, rate: sp.rate, reps: sp.reps});
+        }
       }
     }
   }
@@ -61,6 +78,7 @@ export function buildPlan(settings, blockList, range, mode){
 export function stepLabel(step){
   if (step.kind === 'block') return 'block ' + step.block;
   if (step.kind === 'connect') return 'blocks ' + step.a + '–' + step.b + ' together';
+  if (step.kind === 'top') return 'blocks ' + step.a + '–' + step.b + ' from the top';
   return 'the whole section';
 }
 

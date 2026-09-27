@@ -3,7 +3,7 @@
      beats.js    tempo from taps or from two marked 1s
      grid.js     beats, counts, blocks and the trimmed range
      plan.js     the practice steps, count-ins, and where to continue
-     practice.js the practice session (runs, pauses, count-ins, Again and Got it)
+     practice.js the practice session (runs, pauses, count-ins, Again and skipping ahead)
      storage.js  saving on this device
    and two small helpers that do:
      log.js      the debug log
@@ -20,14 +20,14 @@
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, enabledSteps, groupSize, ladderText, stepLabel, countInNumber, resumeIndex} from './plan.js';
+import {buildPlan, enabledSteps, groupSize, topEvery, ladderText, stepLabel, countInNumber, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {loadStore, saveStore, defaultPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-27-c';
+const APP_VERSION = '2026-09-28-a';
 
 /* ---------- state ---------- */
 
@@ -397,7 +397,7 @@ function currentBlockNum(){ const st = currentStep(); return st && st.kind === '
 /** The first and last block the current step covers. */
 function currentSpan(){
   const st = currentStep();
-  return !st ? null : st.kind === 'block' ? [st.block, st.block] : st.kind === 'connect' ? [st.a, st.b] : null;
+  return !st ? null : st.kind === 'block' ? [st.block, st.block] : st.kind === 'connect' || st.kind === 'top' ? [st.a, st.b] : null;
 }
 
 const buildCurrentPlan = mode => buildPlan(settings, blocks(), {s: cover.rangeStart, e: cover.rangeEnd}, mode);
@@ -441,7 +441,7 @@ function onMainButton(){
   togglePlay();
 }
 function again(){ if (session) session.again(); }
-function gotIt(){ if (session) session.gotIt(); }
+function skipAhead(){ if (session) session.skip(); }
 
 /* Continue where you left off: each full-plan step that starts is saved on the cover (cover.resume), and cleared when
    the plan finishes. It only applies while the range and counts per block are unchanged (see plan.js resumeIndex). */
@@ -808,12 +808,13 @@ function stepRow(x, i){
     '<span class="mv"><button class="ico" data-mv="-1" aria-label="Move up">↑</button><button class="ico" data-mv="1" aria-label="Move down">↓</button>' +
     '<button class="ico" data-rm aria-label="Remove">✕</button></span></div>';
 }
-/** Draw the three speed lists and fill in the options from the settings. */
+/** Draw the four speed lists and fill in the options from the settings. */
 function renderSteps(){
-  for (const [key, el] of [['blockSteps', $('#planB')], ['connectSteps', $('#planC')], ['fullSteps', $('#planF')]]){
+  for (const [key, el] of [['blockSteps', $('#planB')], ['connectSteps', $('#planC')], ['topSteps', $('#planT')], ['fullSteps', $('#planF')]]){
     el.innerHTML = settings[key].map(stepRow).join('') || '<p class="muted small" style="margin:0">No speeds yet. Add one below.</p>';
   }
   $('#optFullAfter').checked = settings.fullAfter; $('#optAuto').checked = settings.auto; $('#optConnectOn').checked = settings.connectOn;
+  $('#optTopOn').checked = settings.topOn; $('#optTopEvery').value = settings.topEvery;
   $('#optMusicB').checked = settings.musicBlocks; $('#optMusicF').checked = settings.musicFull;
   $('#optCounts').value = settings.counts; $('#optGroup').value = settings.group; $('#optRest').value = settings.rest;
   $('#optLeadS').value = settings.leadStart; $('#optLeadR').value = settings.leadRepeat;
@@ -845,6 +846,23 @@ function markPlaying(){
   $$('.chip[data-n]').forEach(c => c.classList.toggle('playing', !!span && +c.dataset.n >= span[0] && +c.dataset.n <= span[1]));
 }
 
+/** The skip button says where it goes: the next speed of this part, the next part, or the end. */
+function skipButtonText(){
+  const target = session && session.skipTarget;
+  if (!target) return '⏭ Next speed';
+  if (!target.to) return '⏭ Finish';
+  if (target.from && target.from.part === target.to.part) return '⏭ Next speed: ' + rateLabel(target.to.rate);
+  return '⏭ Next: ' + stepLabel(target.to);
+}
+
+/** "Blocks 1–4 together", "Block 3 of 12" … for the practice card. */
+function stepTitle(st, nb){
+  if (st.kind === 'full') return 'Whole section';
+  if (st.kind === 'connect') return 'Blocks ' + st.a + '–' + st.b + ' together';
+  if (st.kind === 'top') return 'From the top: blocks ' + st.a + '–' + st.b;
+  return 'Block ' + st.block + ' of ' + nb;
+}
+
 /** The practice card, the mini bar in full screen, and which buttons are usable. */
 function updateSessionUI(){
   if (!hasRange()) return;
@@ -859,6 +877,7 @@ function updateSessionUI(){
     title = 'Ready when you are';
     sub = nb + ' block' + (nb > 1 ? 's' : '') + ': ' + ladderText(settings.blockSteps) +
       (settings.connectOn && nb > 1 ? '. Every ' + groupSize(settings) + ' blocks, together: ' + ladderText(settings.connectSteps) : '') +
+      (settings.topOn && nb > 1 ? '. From the top after every ' + (topEvery(settings) === 1 ? 'new block' : topEvery(settings) + ' new blocks') + ': ' + ladderText(settings.topSteps) : '') +
       (settings.fullAfter ? '. Then the whole section: ' + ladderText(settings.fullSteps) : '');
     main = 'Start practice';
   } else if (s.done){
@@ -867,11 +886,12 @@ function updateSessionUI(){
     const prev = s.plan[s.index - 1], next = s.plan[s.index], label = stepLabel(prev);
     title = label.charAt(0).toUpperCase() + label.slice(1) + ' done';
     sub = 'Ready for ' + stepLabel(next) + '?';
-    main = next.kind === 'block' ? 'Start block ' + next.block : next.kind === 'connect' ? 'Connect blocks ' + next.a + '–' + next.b : 'Run whole section';
+    main = next.kind === 'block' ? 'Start block ' + next.block : next.kind === 'connect' ? 'Connect blocks ' + next.a + '–' + next.b
+      : next.kind === 'top' ? 'Run from the top' : 'Run whole section';
     progress = s.index / s.plan.length;
   } else {
     const st = s.plan[s.index];
-    title = st.kind === 'full' ? 'Whole section' : st.kind === 'connect' ? 'Blocks ' + st.a + '–' + st.b + ' together' : 'Block ' + st.block + ' of ' + nb;
+    title = stepTitle(st, nb);
     sub = s.pausing ? 'Pause. Tap Skip to go now.' : rateLabel(st.rate) + ' · ' + (st.kind === 'block' ? 'rep ' : 'run ') + (s.rep + 1) + ' of ' + st.reps;
     main = s.pausing ? 'Skip pause' : playing ? 'Pause' : 'Resume';
     progress = (s.index + s.rep / st.reps) / s.plan.length;
@@ -886,9 +906,11 @@ function updateSessionUI(){
   $('#sNext').disabled = !canMove || (block ? block >= nb : !(span && span[1] < nb));
   $('#sRestart').disabled = !s || s.done;
   $('#sFromStart').hidden = !resume;
-  // Again redoes the run playing or the one just finished; Got it moves on
+  // Again redoes the run playing or the one just finished; the skip button moves on, and says where to
   $('#sAgain').disabled = $('#mAgain').disabled = !s || (!s.running && !s.lastRun);
-  $('#sGot').disabled = $('#mGot').disabled = !s || s.done;
+  const skip = skipButtonText();
+  $('#sSkip').textContent = skip; $('#mSkip').title = skip; $('#mSkip').setAttribute('aria-label', skip);
+  $('#sSkip').disabled = $('#mSkip').disabled = !s || s.done;
   $('#mSub').textContent = s && !s.done ? title + ' · ' + sub : title;
   $('#fsStat').textContent = s && !s.done ? title + ' · ' + sub : '';
   $('#mMain').textContent = main;
@@ -1089,7 +1111,7 @@ function wirePracticeTab(){
   // options
   const checkbox = (id, key) => $(id).addEventListener('change', e => { settings[key] = e.target.checked; save(); planChanged(); });
   checkbox('#optFullAfter', 'fullAfter'); checkbox('#optAuto', 'auto'); checkbox('#optConnectOn', 'connectOn');
-  checkbox('#optMusicB', 'musicBlocks'); checkbox('#optMusicF', 'musicFull');
+  checkbox('#optMusicB', 'musicBlocks'); checkbox('#optMusicF', 'musicFull'); checkbox('#optTopOn', 'topOn');
   const number = (id, key, lo, hi, fallback, step = 1) => $(id).addEventListener('change', e => {
     const v = +e.target.value;
     settings[key] = clamp(Number.isFinite(v) ? Math.round(v / step) * step : fallback, lo, hi);
@@ -1097,6 +1119,7 @@ function wirePracticeTab(){
   });
   number('#optCounts', 'counts', 2, 16, 8);
   number('#optGroup', 'group', 2, 8, 4);
+  number('#optTopEvery', 'topEvery', 1, 8, 1);
   number('#optRest', 'rest', 0, 10, 2, 0.5);
   number('#optLeadS', 'leadStart', 0, 8, 4);
   number('#optLeadR', 'leadRepeat', 0, 8, 2);
@@ -1107,12 +1130,16 @@ function wirePracticeTab(){
   $('#mMain').addEventListener('click', onMainButton);
   $('#sFromStart').addEventListener('click', startFromBeginning);
   for (const id of ['#sAgain', '#mAgain']) $(id).addEventListener('click', again);
-  for (const id of ['#sGot', '#mGot']) $(id).addEventListener('click', gotIt);
+  for (const id of ['#sSkip', '#mSkip']) $(id).addEventListener('click', skipAhead);
   for (const [cardId, miniId, dir] of [['#sPrev', '#mPrev', -1], ['#sNext', '#mNext', 1]]){
     for (const id of [cardId, miniId]) $(id).addEventListener('click', () => {
-      const block = currentBlockNum(), span = currentSpan();
-      // from a connected or whole-section run, ◀ goes to its first block and ▶ to the block after it
-      gotoBlock(block ? block + dir : span ? (dir < 0 ? span[0] : span[1] + 1) : blocks().length);
+      const block = currentBlockNum(), span = currentSpan(), st = currentStep();
+      // from a from-the-top run, ◀ goes back to its newest block; from a connected run, to its first block;
+      // ▶ goes to the block after either; from the whole section, to the last block
+      if (block) gotoBlock(block + dir);
+      else if (st && st.kind === 'top') gotoBlock(dir < 0 ? st.b : st.b + 1);
+      else if (span) gotoBlock(dir < 0 ? span[0] : span[1] + 1);
+      else gotoBlock(blocks().length);
     });
   }
   $('#sRestart').addEventListener('click', restartPart);
@@ -1135,7 +1162,7 @@ function wireKeyboard(){
     else if (k === 'm') setMirror(!settings.mirror);
     else if (k === 'f') toggleFs();
     else if (k === 'a') again();
-    else if (k === 'g') gotIt();
+    else if (k === 'n') skipAhead();
     else if (k === 'escape' && fsOn && fsFallback) toggleFs();
     else if (k === 'arrowleft' || k === 'arrowright'){
       if (el.classList && el.classList.contains('tHead')) return;   // the trim handles use the arrows themselves
