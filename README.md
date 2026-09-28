@@ -21,7 +21,9 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 
 | File | What it does |
 |---|---|
-| `index.html` | The page markup |
+| `index.html` | The page markup, plus the search and link-preview details in its `<head>` |
+| `privacy.html` | The privacy page (linked from the home page footer). Update it before adding analytics, ads or anything that sends data |
+| `robots.txt` | Lets search engines index the site |
 | `styles.css` | All the styling |
 | `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, and keeping the page up to date |
 | `js/beats.js` | Working out the tempo, from taps or from two marked 1s |

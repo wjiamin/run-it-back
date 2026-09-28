@@ -200,3 +200,10 @@ ol.steps li{margin:2px 0}
 html.standalone body{padding-top:env(safe-area-inset-top)}
 html.standalone body::before{content:'';position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top);background:var(--bg);z-index:50}
 html.standalone .vcol{top:env(safe-area-inset-top)}
+
+/* Footer on the home page, and the plain text pages (privacy) */
+.siteFoot{margin-top:24px;text-align:center}
+.siteFoot a,.doc a{color:var(--accent)}
+.doc h1{font-size:22px;margin:8px 0 4px}
+.doc h2{font-size:16px;margin:20px 0 6px}
+.doc p,.doc li{max-width:65ch}

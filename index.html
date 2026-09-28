@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Run It Back</title>
+<title>Run It Back – learn K-pop dance covers faster</title>
+<meta name="description" content="Free dance practice app: paste a YouTube dance practice video to mirror it, slow it down, get a 5-6-7-8 count-in and loop it in 8-count blocks until you've got it.">
+<!-- how the link looks when shared -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Run It Back">
+<meta property="og:title" content="Run It Back – learn K-pop dance covers faster">
+<meta property="og:description" content="Mirror, slow down, count in and loop a YouTube dance practice video in 8-count blocks. Free, works offline, nothing to sign up for.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Run It Back","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)",
+ "description":"Learn K-pop dance covers faster from a YouTube practice video: mirrored, slowed down, with count-ins, looping 8-count blocks.",
+ "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 <link rel="stylesheet" href="styles.css">
 <!-- installing to the home screen (see js/pwa.js and sw.js) -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -67,6 +80,10 @@
       <p id="iosInstallTip" class="muted small" style="margin:0" hidden>On iPhone or iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, without Safari's bars, and starts even when you're offline.</p>
       <div class="row"><button id="installBtn" class="btn primary" hidden>Install app</button></div>
     </div>
+
+    <footer class="siteFoot small muted">
+      <a href="privacy.html">Privacy</a> · Free, no sign-up. Not affiliated with YouTube or any label.
+    </footer>
   </section>
 
   <!-- PLAYER -->
