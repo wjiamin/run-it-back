@@ -28,7 +28,7 @@ import {loadStore, saveStore, defaultPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-g';
+const APP_VERSION = '2026-09-28-h';
 
 /* ---------- state ---------- */
 
@@ -140,7 +140,7 @@ function debugReport(){
 }
 function renderDebug(){ const box = $('#dbgText'); box.value = debugReport(); box.scrollTop = box.scrollHeight; }
 function openDebug(){ $('#dbgPanel').hidden = false; $('#dbgMsg').textContent = ''; renderDebug(); $('#dbgClose').focus(); }
-function closeDebug(){ $('#dbgPanel').hidden = true; $('#dbgBtn').focus(); }
+function closeDebug(){ $('#dbgPanel').hidden = true; ($('#viewHome').hidden ? $('#dbgBtn') : $('#dbgFootBtn')).focus(); }
 async function copyDebug(){
   const text = debugReport(), box = $('#dbgText'), msg = $('#dbgMsg');
   try { await navigator.clipboard.writeText(text); msg.textContent = 'Copied. Paste it into the chat.'; return; } catch {}
@@ -941,10 +941,14 @@ function renderHome(){
   $('#recentCard').hidden = !ids.length;
   $('#recent').innerHTML = ids.map(id => {
     const v = store.videos[id];
-    const status = !v.period ? 'beat not set yet' : (60 / v.period).toFixed(0) + ' BPM' + (v.resume ? ' · got to ' + v.resume.label : '');
-    return '<li><button class="open" data-id="' + id + '"><span class="t">' + escapeHtml(v.title || id) + '</span><span class="muted small">' + status + '</span></button>' +
-      '<button class="ghost" data-del="' + id + '" aria-label="Remove this cover">✕</button></li>';
+    const status = !v.period ? 'Beat not set yet' : (v.resume ? 'Up to ' + v.resume.label + ' · ' : 'Ready to practise · ') + (60 / v.period).toFixed(0) + ' BPM';
+    // YouTube's own thumbnail; the grey box behind it shows when offline
+    return '<li><button class="open" data-id="' + escapeHtml(id) + '"><span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg" alt="" loading="lazy" onerror="this.remove()"></span>' +
+      '<span class="meta"><span class="t">' + escapeHtml(v.title || id) + '</span><span class="muted small">' + status + '</span></span></button>' +
+      '<button class="ghost" data-del="' + escapeHtml(id) + '" aria-label="Remove this cover">✕</button></li>';
   }).join('');
+  // ask for a tip only once someone has used the app
+  $('#homeTip').hidden = !(tipsOn() && ids.length);
 }
 
 function showView(view){
@@ -1178,7 +1182,7 @@ function wireKeyboard(){
 }
 
 function wireDebugPanel(){
-  $('#dbgBtn').addEventListener('click', openDebug);
+  $('#dbgBtn').addEventListener('click', openDebug); $('#dbgFootBtn').addEventListener('click', openDebug);
   $('#dbgClose').addEventListener('click', closeDebug);
   $('#dbgCopy').addEventListener('click', copyDebug);
   $('#dbgClear').addEventListener('click', () => { clearLog(); log('start', 'log cleared'); $('#dbgMsg').textContent = 'Cleared.'; });

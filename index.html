@@ -39,6 +39,7 @@
 <div class="app">
   <header class="top">
     <button id="backBtn" class="ghost" hidden aria-label="Back to my covers">←</button>
+    <img class="logo" src="icons/icon-192.png" alt="" width="30" height="30">
     <h1 id="heading">Run It Back</h1>
     <button id="dbgBtn" class="ghost" aria-label="Open the debug log" title="Debug log" style="font-size:13px">Log</button>
   </header>
@@ -54,57 +55,69 @@
 
   <!-- HOME -->
   <section id="viewHome">
-    <form id="loadForm" class="card">
-      <h2>Learn a new cover</h2>
-      <p class="muted small" style="margin-top:0">Paste the YouTube dance practice video you're learning from.</p>
-      <div class="row" style="flex-wrap:nowrap">
-        <input id="urlInput" type="text" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…" aria-label="YouTube link">
-        <button class="btn primary" type="submit">Load</button>
+    <div class="hero">
+      <h2 class="heroTitle">Learn any dance cover, <span class="hl">8 counts at a time</span></h2>
+      <p class="heroSub">Paste a YouTube dance practice video. Run It Back mirrors it, slows it down, counts you in and loops each 8-count until you've got it.</p>
+      <form id="loadForm" class="heroForm">
+        <div class="row" style="flex-wrap:nowrap">
+          <input id="urlInput" type="text" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube link">
+          <button class="btn primary" type="submit">Start</button>
+        </div>
+        <p id="homeErr" class="err" hidden></p>
+      </form>
+      <div class="heroCounts" aria-hidden="true">
+        <span class="ci">5</span><span class="ci">6</span><span class="ci">7</span><span class="ci">8</span>
+        <span class="c one">1</span><span class="c">2</span><span class="c">3</span><span class="c">4</span><span class="c">5</span><span class="c">6</span><span class="c">7</span><span class="c">8</span>
       </div>
-      <p id="homeErr" class="err" hidden></p>
-    </form>
-
-    <div id="recentCard" class="card" hidden>
-      <h2>My covers</h2>
-      <ul id="recent" class="recent"></ul>
+      <ul class="heroTags small"><li>Mirrored</li><li>0.5× → 1×</li><li>5-6-7-8 count-ins</li><li>Free, no sign-up</li></ul>
     </div>
 
-    <div class="card">
-      <h2>How it works</h2>
-      <ol class="steps">
-        <li>Load the video. It plays mirrored, with speed control, and goes full screen.</li>
-        <li>Set the beat: a rough tempo, then mark two 1s so the app can count for you.</li>
-        <li>It learns the whole song in 8-count blocks, or trim it to just a part.</li>
-        <li>Press Start. Each block starts on a 5-6-7-8 count-in and plays slow, then faster, then full speed, with a short pause after each run. Every few blocks are connected together, and then the whole section runs with the music.</li>
-        <li>As you add blocks, everything so far runs from the top. Messed up a run? Press <b>Again</b>. Got it already? Press <b>Next</b> to skip to the next speed. Next time, you can continue where you left off.</li>
-      </ol>
-    </div>
+    <div class="homeCols">
+      <div class="homeMain">
+        <div id="recentCard" class="card" hidden>
+          <h2>My covers</h2>
+          <ul id="recent" class="recent"></ul>
+        </div>
 
-    <div class="card tipCard" data-tip hidden>
-      <h2>☕ Support Run It Back</h2>
-      <p class="muted small">Run It Back is free, with no account to make. If it's helped you learn a cover, a tip helps keep it going.</p>
-      <a class="btn tipBtn tipLink">☕ Buy me a coffee</a>
-    </div>
+        <div class="card">
+          <h2>How it works</h2>
+          <ol class="how">
+            <li><span class="howIco" aria-hidden="true">📋</span><div><b class="howT">Paste the video</b><span class="muted small">It plays mirrored, so their right is your right.</span></div></li>
+            <li><span class="howIco" aria-hidden="true">🎵</span><div><b class="howT">Mark the beat</b><span class="muted small">Set a rough tempo and tap two 1s. The app counts from there.</span></div></li>
+            <li><span class="howIco" aria-hidden="true">🔁</span><div><b class="howT">Practise in 8-counts</b><span class="muted small">Each block runs slow, faster, then full speed, then they're chained together. Press <b>Again</b> to redo a run, <b>Next</b> to move on.</span></div></li>
+          </ol>
+        </div>
+      </div>
 
-    <div class="card">
-      <h2>Guides</h2>
-      <ul class="guideLinks small">
-        <li><a href="guides/how-to-learn-a-kpop-dance-cover.html">How to learn a K-pop dance cover fast</a></li>
-        <li><a href="guides/mirror-youtube-video-for-dance.html">How to mirror a YouTube video for dance practice</a></li>
-        <li><a href="guides/slow-down-youtube-dance-video.html">How to slow down a dance video to learn it</a></li>
-        <li><a href="guides/how-to-count-dance-in-8-counts.html">How to count music in 8-counts</a></li>
-      </ul>
-    </div>
+      <aside class="homeSide">
+        <div id="homeTip" class="card tipCard" hidden>
+          <h2>☕ Support Run It Back</h2>
+          <p class="muted small">Run It Back is free, with no account to make. If it's helped you learn a cover, a tip helps keep it going.</p>
+          <a class="btn tipBtn tipLink">☕ Buy me a coffee</a>
+        </div>
 
-    <div id="installCard" class="card" hidden>
-      <h2>Use it like an app</h2>
-      <p id="iosInstallTip" class="muted small" style="margin:0" hidden>On iPhone or iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, without Safari's bars, and starts even when you're offline.</p>
-      <div class="row"><button id="installBtn" class="btn primary" hidden>Install app</button></div>
+        <div class="card">
+          <h2>Guides</h2>
+          <div class="guideCards">
+            <a href="guides/how-to-learn-a-kpop-dance-cover.html"><b>Learn a K-pop cover fast</b><span class="muted small">A step-by-step practice method</span></a>
+            <a href="guides/mirror-youtube-video-for-dance.html"><b>Mirror a YouTube video</b><span class="muted small">Why it helps, and how</span></a>
+            <a href="guides/slow-down-youtube-dance-video.html"><b>Slow down a dance video</b><span class="muted small">Which speeds to practise at</span></a>
+            <a href="guides/how-to-count-dance-in-8-counts.html"><b>Count in 8-counts</b><span class="muted small">Find the 1 in any song</span></a>
+          </div>
+        </div>
+
+        <div id="installCard" class="card" hidden>
+          <h2>Use it like an app</h2>
+          <p id="iosInstallTip" class="muted small" style="margin:0" hidden>On iPhone or iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, without Safari's bars, and starts even when you're offline.</p>
+          <div class="row"><button id="installBtn" class="btn primary" hidden>Install app</button></div>
+        </div>
+      </aside>
     </div>
 
     <footer class="siteFoot small muted">
-      <p><a href="privacy.html">Privacy</a> · Free, no sign-up. Not affiliated with YouTube or any label.</p>
-      <p data-tip hidden>Run It Back is free to use. <a class="tipLink">Support it with a tip ♥</a></p>
+      <p><a href="guides/">Guides</a> · <a href="privacy.html">Privacy</a> · <button type="button" class="linkBtn" id="dbgFootBtn">Debug log</button></p>
+      <p>Free, no sign-up. Not affiliated with YouTube or any label.</p>
+      <p data-tip hidden><a class="tipLink">Support Run It Back with a tip ♥</a></p>
     </footer>
   </section>
 
