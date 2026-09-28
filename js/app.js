@@ -28,7 +28,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf} from './storage.js
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-j';
+const APP_VERSION = '2026-09-28-k';
 
 /* ---------- state ---------- */
 
@@ -262,11 +262,19 @@ function currentTime(){
 function seek(t){
   if (!playerReady) return;
   const wasPlaying = playing;
-  player.seekTo(Math.max(0, t), true);
   clockRaw = -1; nextClickBeat = -1;
+  if (lastPlayerState === 'ended' && sessionRunning() && player.loadVideoById){
+    // once the video has ended, YouTube doesn't reliably seek back and play (practice sat stuck at the end), and playing
+    // it restarts from 0:00. Loading it again from the right place always plays. The speed is set again when it plays.
+    log('player', 'video ended during practice: reloading it at ' + fmtTime(t));
+    lastPlayerState = 'reloading';
+    player.loadVideoById({videoId: cover.id, startSeconds: Math.max(0, t)});
+    return;
+  }
+  player.seekTo(Math.max(0, t), true);
   if (!wasPlaying) player.pauseVideo();   // seeking a paused or unstarted video would otherwise start it
 }
-function play(){ if (playerReady) player.playVideo(); }
+function play(){ if (playerReady && lastPlayerState !== 'reloading') player.playVideo(); }   // a reload plays by itself
 function pause(){ if (playerReady) player.pauseVideo(); }
 function togglePlay(){ if (!playerReady) return; playing ? player.pauseVideo() : player.playVideo(); }
 function setRate(r){ rate = r; if (playerReady && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
@@ -568,11 +576,17 @@ function updateCountUI(t, countIn){
   }
 }
 
+/** A run that goes right to the end of the video counts as finished this long (real seconds) before it (see followSession). */
+const END_MARGIN = 0.6;
+
 /** Move the practice along when the playhead reaches the end of a run; stop it if you scrubbed away. */
 function followSession(t){
   if (!sessionRunning() || !playing || adPlaying || performance.now() <= session.ignoreUntil) return;
   const st = session.plan[session.index];
-  if (t >= st.e && t < st.e + 1.5) session.segmentEnd();
+  // a part that ends at the very end of the video finishes a moment early: once YouTube reaches the end it shows its end
+  // screen, and it doesn't reliably seek back and play again from there
+  const end = duration ? Math.min(st.e, duration - END_MARGIN * rate) : st.e;
+  if (t >= end && t < st.e + 1.5) session.segmentEnd();
   else if (t < session.from - 1.5 || t >= st.e + 1.5){
     endSession('the playhead left the part (at ' + t.toFixed(1) + ' s, expected ' + session.from.toFixed(1) + ' to ' + st.e.toFixed(1) + ' s)');
   }
