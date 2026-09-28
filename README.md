@@ -33,6 +33,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/practice.js` | The practice session: runs, pauses, count-ins, Again and skipping ahead |
 | `js/storage.js` | Saving on the device, and upgrading older saves |
 | `js/log.js` | The private debug log behind the Log button |
+| `js/site.js` | Visit counts (GoatCounter) and the tip link. Both are off until you fill in the two settings at its top |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
 | `js/util.js` | Small helpers |
 | `sw.js` | Service worker: the app opens offline, and updates never mix old and new files |

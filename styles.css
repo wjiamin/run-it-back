@@ -203,7 +203,10 @@ html.standalone .vcol{top:env(safe-area-inset-top)}
 
 /* Footer on the home page, and the plain text pages (privacy) */
 .siteFoot{margin-top:24px;text-align:center}
-.siteFoot a,.doc a{color:var(--accent)}
+.siteFoot a,.doc a,.tipLink{color:var(--accent)}
+.siteFoot p{margin:4px 0}
+#sTip{display:inline-block;margin-top:4px}
+#sTip[hidden]{display:none}
 .doc h1{font-size:22px;margin:8px 0 4px}
 .doc h2{font-size:16px;margin:20px 0 6px}
 .doc p,.doc li{max-width:65ch}

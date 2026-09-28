@@ -6,6 +6,7 @@
    - Marks the page when it runs as an installed app, for the status-bar styles in styles.css. */
 
 import {$} from './util.js';
+import {countEvent} from './site.js';
 
 export const isInstalled = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 const isAppleMobile = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -27,6 +28,7 @@ export function setupInstall(log){
     offer.prompt();
     const {outcome} = await offer.userChoice;
     log('page', 'install ' + outcome);
+    if (outcome === 'accepted') countEvent('install');
     offer = null; button.hidden = true; card.hidden = iosTip.hidden;
   });
   window.addEventListener('appinstalled', () => { log('page', 'installed'); card.hidden = true; });
