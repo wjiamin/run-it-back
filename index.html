@@ -41,8 +41,27 @@
     <button id="backBtn" class="ghost" hidden aria-label="Back to my covers">←</button>
     <img class="logo" src="icons/icon-192.png" alt="" width="30" height="30">
     <h1 id="heading">Run It Back</h1>
+    <button id="shareBtn" class="shareBtn" aria-haspopup="dialog">↗ Share</button>
     <button id="dbgBtn" class="ghost" aria-label="Open the debug log" title="Debug log" style="font-size:13px">Log</button>
   </header>
+
+  <div id="sharePanel" class="dbgPanel" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <div class="dbgBox shareBox">
+      <div class="row between"><h2 id="shareTitle">Share this practice</h2><button id="shareClose" class="ghost" aria-label="Close">✕</button></div>
+      <p id="shareNotReady" class="muted small" style="margin:0" hidden>Set the beat first (the Beats tab), so there's something to share.</p>
+      <div id="shareReady">
+        <p class="muted small" style="margin:0 0 12px">Anyone with the link gets this video with the beat and part already set, ready to practise. Your progress isn't included.</p>
+        <label class="switchRow"><input id="sharePlan" type="checkbox" role="switch" checked><span><b>Include my practice plan</b><span class="muted small" id="sharePlanInfo"></span></span></label>
+        <input id="shareLink" type="text" readonly aria-label="Share link">
+        <div class="row" style="margin-top:10px">
+          <button id="shareCopy" class="btn primary">Copy link</button>
+          <button id="shareNative" class="btn" hidden>Share…</button>
+          <span id="shareMsg" class="small muted" role="status"></span>
+        </div>
+        <p class="muted small" style="margin:12px 0 0">The setup is inside the link itself. It isn't stored anywhere else.</p>
+      </div>
+    </div>
+  </div>
 
   <div id="dbgPanel" class="dbgPanel" hidden role="dialog" aria-modal="true" aria-label="Debug log">
     <div class="dbgBox">
@@ -55,6 +74,8 @@
 
   <!-- HOME -->
   <section id="viewHome">
+    <div id="sharedCard" class="card sharedCard" hidden aria-live="polite"></div>
+
     <div class="hero">
       <h2 class="heroTitle">Learn any dance cover, <span class="hl">8 counts at a time</span></h2>
       <p class="heroSub">Paste a YouTube dance practice video. Run It Back mirrors it, slows it down, counts you in and loops each 8-count until you've got it.</p>

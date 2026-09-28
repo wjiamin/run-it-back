@@ -10,6 +10,7 @@ A small web app for learning K-pop dance covers faster from a YouTube practice v
 - Every few blocks are connected together, then the whole section runs with the music
 - Pick a practice plan (Chill, Standard or Speed run), or customise the speeds, repeats, count-ins, pauses and block sizes
 - As you add blocks, everything learned so far runs from the top (1–2, then 1–3, then 1–4…)
+- Share a practice as a link: whoever opens it gets the video with the beat and part already set, and your practice plan if you choose
 - Again redoes a run, Next skips to the next speed, and next time you can continue where you left off
 - Install it to your home screen: it opens full screen and starts offline
 
@@ -32,6 +33,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/grid.js` | The beat grid: beats, counts, blocks and the trimmed range |
 | `js/plan.js` | The practice plan (blocks, connected runs, from-the-top runs, the whole section, at which speeds), count-ins, and where to continue |
 | `js/practice.js` | The practice session: runs, pauses, count-ins, Again and skipping ahead |
+| `js/share.js` | Share links: packing a cover's setup (and optionally the practice plan) into a link, and reading it back |
 | `js/storage.js` | Saving on the device, and upgrading older saves |
 | `js/log.js` | The private debug log behind the Log button |
 | `js/site.js` | Visit counts (GoatCounter) and the tip link. Both are off until you fill in the two settings at its top |
