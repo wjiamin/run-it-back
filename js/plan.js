@@ -82,8 +82,7 @@ export function stepLabel(step){
   return 'the whole section';
 }
 
-/** "0.5× ×3 → 0.75× ×3 → 1× ×3" */
-/** The same, in words: "0.5× → 0.75× → 1×, 3 runs each", or "0.5× (4 runs) → 1× (3 runs)" when the repeats differ. */
+/** A list of speeds in words: "0.5× → 0.75× → 1×, 3 runs each", or "0.5× (4 runs) → 1× (3 runs)" when the repeats differ. */
 export function ladderWords(list){
   const on = enabledSteps(list);
   if (!on.length) return 'none';
@@ -93,10 +92,6 @@ export function ladderWords(list){
     : on.map(x => rateLabel(x.rate) + ' (' + runs(x.reps) + ')').join(' → ');
 }
 
-export function ladderText(list){
-  const on = enabledSteps(list);
-  return on.length ? on.map(x => rateLabel(x.rate) + ' ×' + x.reps).join(' → ') : 'none';
-}
 
 /**
  * Where a run starts, so it begins with a count-in of `lead` counts (4 = "5, 6, 7, 8").

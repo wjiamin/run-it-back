@@ -1,8 +1,9 @@
-/* Visit counts and the tip link. Both stay off until they are filled in below.
+/* Visit counts and the tip link, each switched on by its setting below (empty = off).
    - Visit counts use GoatCounter (goatcounter.com): no cookies, nothing personal stored, so no cookie banner is needed.
      It counts page views, plus a few named moments (a video loaded, practice started or finished, the app installed,
      a share link made or opened, the tip link pressed). Never video links or titles. It skips localhost, so testing locally is not counted.
-   - The tip link (Ko-fi, Buy Me a Coffee…) shows in the home page footer and when you finish practising a range.
+   - The tip link (Ko-fi, Buy Me a Coffee…) shows in the footers, on the home page once you have a saved cover, and when
+     you finish practising a range.
    If you change what is counted, update privacy.html too. */
 
 /** Your GoatCounter code: the "runitback" in runitback.goatcounter.com. Empty = no counting. */

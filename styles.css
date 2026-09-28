@@ -39,36 +39,30 @@ input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);margin:0;
 input[type=range]{accent-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* home */
+/* header: the logo on the home page; Share and Log only while practising (the debug log is in the home page footer) */
 .logo{width:30px;height:30px;border-radius:8px;flex:none}
 body.pm .logo{display:none}
-body:not(.pm) #dbgBtn{display:none}   /* on the home page the debug log is in the footer */
-body:not(.pm) #shareBtn{display:none}
+body:not(.pm) #dbgBtn, body:not(.pm) #shareBtn{display:none}
 .shareBtn{flex:none;height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--accent);background:transparent;
   color:var(--accent);font-weight:700;font-size:15px;white-space:nowrap}
 .shareBtn:hover{background:color-mix(in srgb, var(--accent) 12%, transparent)}
-.shareBox{width:min(520px,100%)}
-.shareBox h2{margin:0}
-#shareLink{font-size:13px;color:var(--muted)}
-.switchRow{display:flex;gap:12px;align-items:center;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
-.switchRow > span{display:flex;flex-direction:column;gap:2px}
-input[role=switch]{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;flex:none;margin:0;cursor:pointer;transition:background .15s}
-input[role=switch]::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
-input[role=switch]:checked{background:var(--accent)}
-input[role=switch]:checked::after{transform:translateX(18px)}
+.linkBtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer}
 
-/* a share link was opened: the card at the top of the home page */
+/* a YouTube thumbnail (My covers, a shared practice); the grey box shows when it can't load */
+.thumb{width:96px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2);overflow:hidden;flex:none}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* home: a share link was opened (the card at the top, see "sharing" in app.js) */
 .sharedCard{border-color:var(--accent);margin-top:16px}
 .sharedCard .shHead{display:flex;gap:12px;align-items:center}
-.sharedCard .thumb{width:112px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2);overflow:hidden;flex:none}
-.sharedCard .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.sharedCard .thumb{width:112px}
 .sharedCard .kicker{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .sharedCard .shTitle{font-weight:700;margin:2px 0}
 .sharedCard .switchRow{margin:12px 0 0}
 .sharedCard .note{margin:10px 0 0}
 .sharedCard .row{margin-top:12px}
-.linkBtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer}
 
+/* home: the headline, the paste box, and the 5-6-7-8 / 1-8 count strip */
 .hero{position:relative;padding:22px 4px 8px;text-align:center}
 .hero::before{content:"";position:absolute;inset:-40px -16px auto;height:280px;z-index:-1;pointer-events:none;
   background:radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent)}
@@ -78,6 +72,7 @@ input[role=switch]:checked::after{transform:translateX(18px)}
 .heroForm{max-width:520px;margin:0 auto}
 .heroForm .btn.primary{min-height:48px;padding:6px 22px;font-size:17px}
 .heroForm input[type=text]{min-height:48px;background:var(--panel);font-size:16px}
+.err{color:var(--warn);margin:8px 0 0;font-size:14px}
 .heroCounts{display:flex;justify-content:center;gap:3px;margin:18px auto 10px}
 .heroCounts span{width:min(26px, calc((100vw - 70px) / 12));height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .heroCounts .ci{color:var(--muted);border:1px dashed var(--line)}
@@ -87,12 +82,11 @@ input[role=switch]:checked::after{transform:translateX(18px)}
 .heroTags{list-style:none;display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:0;padding:0}
 .heroTags li{padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 
+/* home: My covers, How it works, Guides */
 .recent{list-style:none;margin:0;padding:0}
 .recent li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
 .recent li:first-child{border-top:0}
 .recent .open{flex:1;display:flex;align-items:center;gap:12px;text-align:left;background:none;border:0;padding:10px 0;min-width:0}
-.recent .thumb{width:96px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2);overflow:hidden;flex:none}
-.recent .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .recent .meta{min-width:0;display:flex;flex-direction:column;gap:2px}
 .recent .t{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -106,6 +100,7 @@ input[role=switch]:checked::after{transform:translateX(18px)}
   text-decoration:none;color:var(--text);font-size:14px}
 .guideCards a:hover{border-color:var(--accent)}
 
+/* home on a computer: wider, two columns under the headline */
 @media (min-width:900px){
   body:not(.pm) .app{max-width:1040px}
   .hero{padding-top:36px}
@@ -113,7 +108,6 @@ input[role=switch]:checked::after{transform:translateX(18px)}
   .homeCols{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
   .homeCols > * > .card:first-child:not([hidden]){margin-top:12px}
 }
-.err{color:var(--warn);margin:8px 0 0;font-size:14px}
 
 /* player layout: video first, big */
 .stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:14px}
@@ -274,12 +268,22 @@ body.fsmode .vcol{z-index:150}
 .cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px}
 .cgrp .chips{margin-top:0}
 .chip.conn{border-style:dashed;border-color:var(--accent)}
-/* debug log panel */
+/* pop-up panels: the debug log and Share */
 .dbgPanel{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;padding:12px}
 .dbgBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(760px,100%);max-height:100%;margin:auto;display:flex;flex-direction:column;gap:10px}
 .dbgBox h2{margin:0;font-size:16px}
 .dbgBox textarea{flex:1;min-height:220px;height:55vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px;resize:none;white-space:pre}
+.shareBox{width:min(520px,100%)}
+#shareLink{font-size:13px;color:var(--muted)}
 [hidden]{display:none!important}
+
+/* an on/off switch with a label and a note (Share panel, shared practice card) */
+.switchRow{display:flex;gap:12px;align-items:center;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.switchRow > span{display:flex;flex-direction:column;gap:2px}
+input[role=switch]{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;flex:none;margin:0;cursor:pointer;transition:background .15s}
+input[role=switch]::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+input[role=switch]:checked{background:var(--accent)}
+input[role=switch]:checked::after{transform:translateX(18px)}
 
 /* installed to the home screen: on iPhone the page runs under a see-through status bar, so keep content below it
    (html.standalone is set by js/pwa.js) */
@@ -287,28 +291,29 @@ html.standalone body{padding-top:env(safe-area-inset-top)}
 html.standalone body::before{content:'';position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top);background:var(--bg);z-index:50}
 html.standalone .vcol{top:env(safe-area-inset-top)}
 
-/* Footer on the home page, and the plain text pages (privacy) */
-.siteFoot{margin-top:24px;text-align:center}
-.siteFoot a,.doc a,.tipLink{color:var(--accent)}
-.siteFoot p{margin:4px 0}
-/* Tip button: on the home page card and on the practice card when a range is complete */
+/* tips: the Support card on the home page, and the box on the practice card when a range is complete (outlined there,
+   so it doesn't compete with Start again) */
 .btn.tipBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 18px;
   background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;text-decoration:none}
 .tipCard{border-color:var(--accent)}
 .tipCard p{margin:0 0 10px}
 .tipBox{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 2px;padding:10px 12px;
   border:1px solid var(--accent);border-radius:12px;font-size:14px}
-.tipBox[hidden]{display:none}
+.tipBox .btn.tipBtn{background:transparent;color:var(--accent);min-height:40px}
+
+/* footers, and the text pages (privacy, guides) */
+.siteFoot{margin-top:24px;text-align:center}
+.siteFoot a,.doc a,.tipLink{color:var(--accent)}
+.siteFoot p{margin:4px 0}
 .doc h1{font-size:22px;margin:8px 0 4px}
 .doc h2{font-size:16px;margin:20px 0 6px}
 .doc p,.doc li{max-width:65ch}
+.doc li{margin:4px 0}
 .doc .top{justify-content:space-between}
 .doc .lead{font-size:18px}
-.doc li{margin:4px 0}
+.doc .more{margin-top:28px;border-top:1px solid var(--line);padding-top:4px}
 .doc .more a,.guideList a{color:var(--accent)}
 .guideList{padding-left:18px}
 .guideList li{margin:12px 0}
 .ctaBox{margin:22px 0;text-align:center}
 .btn.cta{display:inline-flex;align-items:center;min-height:46px;padding:8px 22px;text-decoration:none;font-size:17px;margin-bottom:6px}
-.doc .more{margin-top:28px;border-top:1px solid var(--line);padding-top:4px}
-.tipBox .btn.tipBtn{background:transparent;color:var(--accent);min-height:40px}

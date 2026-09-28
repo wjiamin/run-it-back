@@ -40,12 +40,12 @@ export function makeShareLink(base, cover, settings){
   if (cover.one1 != null && cover.one2 != null && cover.oneBeats) q.set('m', fix(cover.one1, 3) + '~' + fix(cover.one2, 3) + '~' + cover.oneBeats);
   if (settings){
     q.set('n', settings.counts);
-    const name = presetOf(settings);
-    q.set('plan', name);
-    if (name === 'custom'){
+    const preset = presetOf(settings);
+    q.set('plan', preset);
+    if (preset === 'custom'){
       for (const [key, list] of Object.entries(STEP_LISTS)) q.set(key, stepsText(settings[list]));
-      for (const [key, name] of PLAN_NUMBERS) q.set(key, settings[name]);
-      for (const [key, name] of PLAN_FLAGS) q.set(key, settings[name] ? 1 : 0);
+      for (const [key, field] of PLAN_NUMBERS) q.set(key, settings[field]);
+      for (const [key, field] of PLAN_FLAGS) q.set(key, settings[field] ? 1 : 0);
     }
   }
   return base + '#' + q.toString();
@@ -101,10 +101,10 @@ function customPlan(q){
     });
     if (steps.every(Boolean)) plan[list] = steps;
   }
-  for (const [key, name, lo, hi] of PLAN_NUMBERS){
+  for (const [key, field, lo, hi] of PLAN_NUMBERS){
     const x = parseFloat(q.get(key));
-    if (Number.isFinite(x)) plan[name] = clamp(name === 'rest' ? Math.round(x * 2) / 2 : Math.round(x), lo, hi);
+    if (Number.isFinite(x)) plan[field] = clamp(field === 'rest' ? Math.round(x * 2) / 2 : Math.round(x), lo, hi);   // the pause goes in half seconds
   }
-  for (const [key, name] of PLAN_FLAGS) if (q.has(key)) plan[name] = q.get(key) === '1';
+  for (const [key, field] of PLAN_FLAGS) if (q.has(key)) plan[field] = q.get(key) === '1';
   return plan;
 }
