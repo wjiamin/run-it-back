@@ -6,7 +6,7 @@
    If you change what is counted, update privacy.html too. */
 
 /** Your GoatCounter code: the "runitback" in runitback.goatcounter.com. Empty = no counting. */
-export const GOATCOUNTER_CODE = '';
+export const GOATCOUNTER_CODE = 'runitback';
 /** Your tip page, for example 'https://ko-fi.com/yourname'. Empty = no tip links. */
 export const TIP_URL = '';
 
