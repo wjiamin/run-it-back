@@ -8,7 +8,7 @@
 /** Your GoatCounter code: the "runitback" in runitback.goatcounter.com. Empty = no counting. */
 export const GOATCOUNTER_CODE = 'runitback';
 /** Your tip page, for example 'https://ko-fi.com/yourname'. Empty = no tip links. */
-export const TIP_URL = '';
+export const TIP_URL = 'https://ko-fi.com/runitbackcover';
 
 export function setupAnalytics(){
   if (!GOATCOUNTER_CODE) return;

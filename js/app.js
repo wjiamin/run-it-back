@@ -28,7 +28,7 @@ import {loadStore, saveStore, defaultPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-d';
+const APP_VERSION = '2026-09-28-e';
 
 /* ---------- state ---------- */
 
