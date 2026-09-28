@@ -162,10 +162,10 @@
             <div class="seg" id="rateSeg" role="group" aria-label="Speed">
               <button data-r="0.25">.25×</button><button data-r="0.5">.5×</button><button data-r="0.75">.75×</button><button data-r="1">1×</button>
             </div>
-            <button id="mirrorBtn" class="btn sm" aria-pressed="true">Mirror</button>
-            <button id="flashBtn" class="btn sm" aria-pressed="false" title="Flash the video edge on every count, to check the count lines up">Flash</button>
-            <button id="clickBtn" class="btn sm" aria-pressed="false" title="Play a metronome click on every count">Click</button>
-            <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press Skip">Ad?</button>
+            <button id="mirrorBtn" class="btn sm" aria-pressed="true" title="Flip the video, so their right is your right">⇆ Mirror</button>
+            <button id="flashBtn" class="btn sm" aria-pressed="false" title="Flash the video edge on every count, to check the count lines up">✦ Flash</button>
+            <button id="clickBtn" class="btn sm" aria-pressed="false" title="Play a metronome click on every count">♪ Click</button>
+            <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press YouTube's Skip button">Skip ad</button>
             <div class="miniSess" id="miniSess">
               <span class="ms" id="mSub"></span>
               <button id="mAgain" class="btn sm" aria-label="Again: redo this run">↺</button>
@@ -221,7 +221,7 @@
             <h2>Step 4 · Check it</h2>
             <p class="muted small" style="margin:0">Turn on <b>Flash</b> or <b>Click</b> under the video and play. The edge flashes on every count (green on the 1), and the click marks each count. If it's a little early or late, use Timing below. If the 1 is on the wrong beat, redo step 2.</p>
             <div class="row" style="margin-top:12px">
-              <button id="toPractice" class="btn primary" disabled>Next: trim what to learn →</button>
+              <button id="toPractice" class="btn primary" disabled>Next: start practising →</button>
             </div>
           </div>
           <div class="card">
@@ -244,6 +244,31 @@
         <div id="panelPractice" hidden>
           <div id="pMsg" class="card muted"></div>
           <div id="pBody" hidden>
+            <div class="card sess">
+              <div class="title" id="sTitle">Ready when you are</div>
+              <div class="muted small" id="sSub"></div>
+              <div class="prog"><i id="sProg"></i></div>
+              <div id="sTip" class="tipBox" hidden>
+                <span>Enjoying Run It Back? It's free, and tips keep it that way.</span>
+                <a class="btn tipBtn tipLink">☕ Buy me a coffee</a>
+              </div>
+              <div class="sBtns">
+                <button id="sMain" class="btn primary">Start practice</button>
+                <button id="sAgain" class="btn" title="Redo this run. It doesn't count. (A)">↺ Again</button>
+                <button id="sSkip" class="btn" title="Skip the rest of this speed and move on. (N)">⏭ Next speed</button>
+              </div>
+              <div class="sNav">
+                <button id="sPrev" class="btn sm">◀ Block</button>
+                <button id="sRestart" class="btn sm">Restart part</button>
+                <button id="sNext" class="btn sm">Block ▶</button>
+              </div>
+              <div class="sNav2">
+                <button id="sFromStart" class="btn sm" hidden>Start from the beginning</button>
+                <button id="sFull" class="btn sm">Run the whole section only</button>
+              </div>
+              <div class="chips" id="chips"></div>
+            </div>
+
             <div class="card">
               <div class="row between"><h2 style="margin:0">Trim what to learn</h2>
                 <span class="row"><button id="wholeBtn" class="btn sm" title="Learn the whole song again, from your marked 1 to the end">Whole song</button><button id="zoomBtn" class="btn sm" aria-pressed="false">Zoom to selection</button></span></div>
@@ -264,47 +289,30 @@
               </div>
             </div>
 
-            <div class="card sess">
-              <div class="title" id="sTitle">Ready when you are</div>
-              <div class="muted small" id="sSub"></div>
-              <div class="prog"><i id="sProg"></i></div>
-              <div id="sTip" class="tipBox" hidden>
-                <span>Enjoying Run It Back? It's free, and tips keep it that way.</span>
-                <a class="btn tipBtn tipLink">☕ Buy me a coffee</a>
-              </div>
-              <div class="row">
-                <button id="sMain" class="btn primary">Start practice</button>
-                <button id="sAgain" class="btn" title="Redo this run. It doesn't count. (A)">↺ Again</button>
-                <button id="sSkip" class="btn" title="Skip the rest of this speed and move on. (N)">⏭ Next speed</button>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <button id="sPrev" class="btn sm">◀ Block</button>
-                <button id="sRestart" class="btn sm">Restart this part</button>
-                <button id="sNext" class="btn sm">Block ▶</button>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <button id="sFromStart" class="btn sm" hidden>Start from the beginning</button>
-                <button id="sFull" class="btn sm">Run the whole section only</button>
-              </div>
-              <div class="chips" id="chips"></div>
-            </div>
-
             <div class="card">
-              <h2>Block plan: every 8-count block</h2>
+              <h2>Practice plan</h2>
+              <div class="seg presetSeg" id="presetSeg" role="group" aria-label="Practice plan preset">
+                <button data-preset="chill">Chill</button><button data-preset="standard">Standard</button><button data-preset="speed">Speed run</button>
+              </div>
+              <p class="muted small" id="presetInfo" style="margin:8px 0 0"></p>
+              <details class="planMore" id="planMore">
+                <summary>Customise the plan</summary>
+            <div class="sub">
+              <h3>Block plan: every 8-count block</h3>
               <div id="planB" data-list="blockSteps"></div>
               <button class="btn sm" data-add="blockSteps" style="margin-top:10px">+ Add speed</button>
             </div>
 
-            <div class="card">
-              <h2>Connect plan: put the blocks together</h2>
+            <div class="sub">
+              <h3>Connect plan: put the blocks together</h3>
               <div class="opt" style="margin-top:0"><input id="optConnectOn" type="checkbox"><label for="optConnectOn">Connect the blocks together as you go</label></div>
               <div class="opt"><input id="optGroup" type="number" min="2" max="8" step="1"><label for="optGroup">blocks in each connected run</label></div>
               <div id="planC" data-list="connectSteps" style="margin-top:4px"></div>
               <button class="btn sm" data-add="connectSteps" style="margin-top:10px">+ Add speed</button>
             </div>
 
-            <div class="card">
-              <h2>From the top: everything learned so far</h2>
+            <div class="sub">
+              <h3>From the top: everything learned so far</h3>
               <div class="opt" style="margin-top:0"><input id="optTopOn" type="checkbox"><label for="optTopOn">Run from the top as you add blocks</label></div>
               <div class="opt"><input id="optTopEvery" type="number" min="1" max="8" step="1"><label for="optTopEvery">after every this many new blocks (1 = blocks 1–2, then 1–3, then 1–4…)</label></div>
               <p class="muted small" style="margin:8px 0 0">On a long song this adds up: with 1, a 36-block song gets about 40 extra minutes at 1×. Try 4 for about 12.</p>
@@ -312,15 +320,15 @@
               <button class="btn sm" data-add="topSteps" style="margin-top:10px">+ Add speed</button>
             </div>
 
-            <div class="card">
-              <h2>Whole-section plan: the full range, with music</h2>
+            <div class="sub">
+              <h3>Whole-section plan: the full range, with music</h3>
               <div class="opt" style="margin-top:0"><input id="optFullAfter" type="checkbox"><label for="optFullAfter">Run the whole section after the blocks</label></div>
               <div id="planF" data-list="fullSteps"></div>
               <button class="btn sm" data-add="fullSteps" style="margin-top:10px">+ Add speed</button>
             </div>
 
-            <div class="card">
-              <h2>Options</h2>
+            <div class="sub">
+              <h3>Options</h3>
               <div class="opt" style="margin-top:0"><input id="optAuto" type="checkbox"><label for="optAuto">Move on to the next block automatically</label></div>
               <div class="opt"><input id="optMusicB" type="checkbox"><label for="optMusicB">Play the music during block drills</label></div>
               <div class="opt"><input id="optMusicF" type="checkbox"><label for="optMusicF">Play the music during connected, from-the-top and whole-section runs</label></div>
@@ -329,7 +337,9 @@
               <div class="opt"><input id="optLeadS" type="number" min="0" max="8" step="1"><label for="optLeadS">count-in when starting a part (4 = 5, 6, 7, 8)</label></div>
               <div class="opt"><input id="optLeadR" type="number" min="0" max="8" step="1"><label for="optLeadR">count-in before each repeat (2 = 7, 8)</label></div>
               <p class="muted small" style="margin:8px 0 0">If the video doesn't have that many counts before a part, such as at the very start, the count-in loops round and plays the last counts of the part first.</p>
-              <div class="row" style="margin-top:14px"><button id="resetPlan" class="btn sm">Reset plan to defaults</button></div>
+              <div class="row" style="margin-top:14px"><button id="resetPlan" class="btn sm">Reset everything to defaults</button></div>
+            </div>
+              </details>
             </div>
           </div>
         </div>

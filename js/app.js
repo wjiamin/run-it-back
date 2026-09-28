@@ -20,15 +20,15 @@
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, enabledSteps, groupSize, topEvery, ladderText, stepLabel, countInNumber, resumeIndex} from './plan.js';
+import {buildPlan, enabledSteps, groupSize, topEvery, ladderWords, stepLabel, countInNumber, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
-import {loadStore, saveStore, defaultPlan} from './storage.js';
+import {loadStore, saveStore, defaultPlan, presets, presetOf} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-h';
+const APP_VERSION = '2026-09-28-i';
 
 /* ---------- state ---------- */
 
@@ -821,9 +821,24 @@ function renderSteps(){
   $('#optMusicB').checked = settings.musicBlocks; $('#optMusicF').checked = settings.musicFull;
   $('#optCounts').value = settings.counts; $('#optGroup').value = settings.group; $('#optRest').value = settings.rest;
   $('#optLeadS').value = settings.leadStart; $('#optLeadR').value = settings.leadRepeat;
+  showPreset();
+}
+
+const PRESET_INFO = {
+  chill: 'Slower, with more repeats, smaller chunks and longer breaks.',
+  standard: 'Each block slow, medium, then full speed, 3 runs each. Connected in fours.',
+  speed: 'Starts at 0.75×, fewer repeats, short breaks. For when you pick things up fast.',
+  custom: 'Your own plan. Pick a preset to start from one of these instead.',
+};
+/** Light up the preset the plan matches (none when it has been customised). */
+function showPreset(){
+  const name = presetOf(settings);
+  $$('#presetSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.preset === name));
+  $('#presetInfo').textContent = PRESET_INFO[name];
 }
 function planChanged(){
   log('plan', 'plan or options changed');
+  showPreset();
   endSession();
   if (hasRange()) updateRangeLite();
   updateSessionUI();
@@ -878,10 +893,11 @@ function updateSessionUI(){
     main = 'Continue from ' + stepLabel(resume.step);
   } else if (!s){
     title = 'Ready when you are';
-    sub = nb + ' block' + (nb > 1 ? 's' : '') + ': ' + ladderText(settings.blockSteps) +
-      (settings.connectOn && nb > 1 ? '. Every ' + groupSize(settings) + ' blocks, together: ' + ladderText(settings.connectSteps) : '') +
-      (settings.topOn && nb > 1 ? '. From the top after every ' + (topEvery(settings) === 1 ? 'new block' : topEvery(settings) + ' new blocks') + ': ' + ladderText(settings.topSteps) : '') +
-      (settings.fullAfter ? '. Then the whole section: ' + ladderText(settings.fullSteps) : '');
+    // one line per part of the plan (the sub line keeps line breaks, see .sess #sSub)
+    sub = [nb + ' block' + (nb > 1 ? 's' : '') + ', each at ' + ladderWords(settings.blockSteps),
+      settings.connectOn && nb > 1 ? 'Every ' + groupSize(settings) + ' blocks together: ' + ladderWords(settings.connectSteps) : '',
+      settings.topOn && nb > 1 ? 'From the top after every ' + (topEvery(settings) === 1 ? 'new block' : topEvery(settings) + ' new blocks') + ': ' + ladderWords(settings.topSteps) : '',
+      settings.fullAfter ? 'Then the whole section: ' + ladderWords(settings.fullSteps) : ''].filter(Boolean).join('\n');
     main = 'Start practice';
   } else if (s.done){
     title = 'Range complete 🎉'; sub = 'Nice work. Start again, or run the whole section.'; main = 'Start again'; progress = 1;
@@ -1131,6 +1147,13 @@ function wirePracticeTab(){
   number('#optRest', 'rest', 0, 10, 2, 0.5);
   number('#optLeadS', 'leadStart', 0, 8, 4);
   number('#optLeadR', 'leadRepeat', 0, 8, 2);
+  $('#presetSeg').addEventListener('click', e => {
+    const b = e.target.closest('[data-preset]');
+    if (!b) return;
+    Object.assign(settings, presets()[b.dataset.preset]);   // presets() makes fresh copies
+    log('plan', 'preset ' + b.dataset.preset);
+    save(); renderSteps(); planChanged();
+  });
   $('#resetPlan').addEventListener('click', () => { Object.assign(settings, defaultPlan()); save(); renderSteps(); planChanged(); });
 
   // session buttons (the card, and the mini bar in full screen)

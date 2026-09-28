@@ -3,9 +3,9 @@
 import {parseYouTubeId, fmtTime, fmtTimePrecise} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, planCountIn, countInNumber, ladderText, resumeIndex} from './plan.js';
+import {buildPlan, planCountIn, countInNumber, ladderText, ladderWords, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
-import {migrate, defaultSettings, SETTINGS_VERSION} from './storage.js';
+import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf} from './storage.js';
 
 const results = [];
 function test(name, fn){
@@ -146,6 +146,21 @@ test('a from-the-top step runs from the first block to the newest', () => {
   const s = planSettings({connectOn: false, fullAfter: false, topOn: true, topEvery: 1, blockSteps: speeds([1]), topSteps: speeds([1])});
   const top = buildPlan(s, blocks5.slice(0, 3), {s: 4, e: 16}, 'all').find(st => st.part === 't3');
   eq([top.kind, top.a, top.b, top.s, top.e], ['top', 1, 3, 4, 16]);
+});
+test('ladderWords', () => {
+  const st = (rate, reps, on = true) => ({rate, on, reps});
+  eq(ladderWords([st(0.5, 3), st(0.75, 3), st(1, 3)]), '0.5× → 0.75× → 1×, 3 runs each');
+  eq(ladderWords([st(0.5, 4), st(1, 3), st(2, 1, false)]), '0.5× (4 runs) → 1× (3 runs)');
+  eq(ladderWords([st(1, 1)]), '1×, 1 run');
+  eq(ladderWords([]), 'none');
+});
+test('presets: the defaults are Standard, and each preset is recognised', () => {
+  eq(presetOf(defaultSettings()), 'standard');
+  for (const [name, p] of Object.entries(presets())) eq(presetOf({...defaultSettings(), ...p}), name, name);
+});
+test('presets: changing anything in the plan makes it Custom; other options do not', () => {
+  const s = defaultSettings(); s.blockSteps[0].reps = 5; eq(presetOf(s), 'custom');
+  const t = {...defaultSettings(), auto: false, musicBlocks: false, counts: 4}; eq(presetOf(t), 'standard');
 });
 test('ladderText', () => { eq(ladderText([{rate: 0.5, on: true, reps: 3}, {rate: 1, on: false, reps: 1}]), '0.5× ×3'); eq(ladderText([]), 'none'); });
 
