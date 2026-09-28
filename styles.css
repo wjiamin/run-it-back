@@ -24,7 +24,7 @@ body.pm .app{max-width:1920px}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
 .btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled{opacity:.35;cursor:default;background:transparent}
 .ico{background:var(--panel2);border:1px solid var(--line);border-radius:8px;width:30px;height:34px;padding:0;font-size:14px;line-height:1}
 .ico:disabled{opacity:.35}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-top:12px}
@@ -138,6 +138,11 @@ body:not(.pm) #dbgBtn{display:none}   /* on the home page the debug log is in th
 .seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .seg button:disabled{opacity:.5;cursor:default}
 #ctlOpts{margin-top:10px}
+/* under the video (not in full screen): speeds across the full width, then the four toggles in equal columns */
+#ctlOptsHome #ctlOpts{display:grid;grid-template-columns:repeat(4, 1fr);gap:6px}
+#ctlOptsHome #rateSeg{grid-column:1 / -1;display:flex}
+#ctlOptsHome #rateSeg button{flex:1}
+#ctlOptsHome #ctlOpts > .btn{padding:4px 6px;white-space:nowrap}
 .miniSess{display:none;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
 .miniSess .ms{flex:1;min-width:120px;font-size:13px}
 
@@ -217,6 +222,21 @@ body.fsmode .vcol{z-index:150}
 .opt{display:flex;align-items:center;gap:10px;margin-top:12px}
 .opt label{flex:1}
 .sess .title{font-size:20px;font-weight:700}
+.sess #sSub{white-space:pre-line}
+/* the practice buttons: the main one full width, then Again and Next speed side by side, then the block buttons */
+.sBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sBtns #sMain{grid-column:1 / -1;min-height:48px;font-size:17px}
+.sNav{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px;margin-top:8px}
+.sNav2{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.sNav2 .btn{flex:1}
+/* practice plan: presets, and the detailed plan folded away */
+.presetSeg{display:flex}
+.presetSeg button{flex:1;min-height:42px;font-size:15px}
+.planMore{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.planMore summary{cursor:pointer;font-weight:600;color:var(--accent);padding:4px 0;list-style-position:inside}
+.planMore .sub{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.planMore .sub:first-of-type{border-top:0;margin-top:6px}
+.planMore h3{font-size:14px;margin:0 0 6px}
 .prog{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:10px 0}
 .prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
 .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:12px}

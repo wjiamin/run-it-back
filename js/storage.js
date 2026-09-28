@@ -36,6 +36,30 @@ export const defaultPlan = () => ({
   rest: 2,             // seconds of pause after each run-through
 });
 
+/* Ready-made plans for the preset buttons. A preset sets these plan fields and leaves the rest (moving on
+   automatically, music, counts per block) as they are. */
+export const PRESET_KEYS = ['blockSteps', 'connectSteps', 'fullSteps', 'topSteps', 'connectOn', 'group', 'topOn', 'topEvery',
+  'fullAfter', 'leadStart', 'leadRepeat', 'rest'];
+const ladder = pairs => pairs.map(([rate, reps]) => ({rate, on: true, reps}));
+const pick = obj => Object.fromEntries(PRESET_KEYS.map(k => [k, obj[k]]));
+export const presets = () => ({
+  // slower, more repeats, smaller chunks and a longer breather between runs
+  chill: {...pick(defaultPlan()), blockSteps: ladder([[0.5, 4], [0.75, 3], [1, 3]]), connectSteps: ladder([[0.75, 3], [1, 2]]),
+    group: 2, topEvery: 2, fullSteps: ladder([[0.75, 2], [1, 3]]), leadRepeat: 4, rest: 3},
+  standard: pick(defaultPlan()),
+  // skip the slowest speed and most repeats, for when you pick things up fast
+  speed: {...pick(defaultPlan()), blockSteps: ladder([[0.75, 2], [1, 2]]), connectSteps: ladder([[1, 2]]),
+    topEvery: 4, fullSteps: ladder([[1, 2]]), leadRepeat: 2, rest: 1},
+});
+
+/** Which preset the settings match: 'chill', 'standard', 'speed', or 'custom'. */
+export function presetOf(settings){
+  const norm = v => Array.isArray(v) ? v.map(x => [x.rate, !!x.on, x.reps]) : v;
+  const key = obj => JSON.stringify(PRESET_KEYS.map(k => norm(obj[k])));
+  const mine = key(settings);
+  return Object.entries(presets()).find(([, p]) => key(p) === mine)?.[0] || 'custom';
+}
+
 export const defaultSettings = () => ({
   counts: 8, mirror: true, muted: false, flash: false, click: false, v: SETTINGS_VERSION,
   ...defaultPlan(),
