@@ -23,7 +23,8 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 |---|---|
 | `index.html` | The page markup, plus the search and link-preview details in its `<head>` |
 | `privacy.html` | The privacy page (linked from the home page footer). Update it before adding analytics, ads or anything that sends data |
-| `robots.txt` | Lets search engines index the site |
+| `sitemap.xml` | The list of pages for search engines (submit it in Google Search Console). Add new pages to it |
+| `icons/share.png`, `tools/share-image.html` | The link-preview picture, and the page it is drawn from (how to redraw it is at the top of that file) |
 | `styles.css` | All the styling |
 | `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, and keeping the page up to date |
 | `js/beats.js` | Working out the tempo, from taps or from two marked 1s |
@@ -41,6 +42,9 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 
 `beats.js`, `grid.js`, `plan.js` and `practice.js` never touch the page, so they can be tested on their own (the practice
 session is tested with a pretend player and clock).
+
+The live site is https://wjiamin.github.io/run-it-back/ (GitHub Pages). The full addresses in `index.html`, `privacy.html`
+and `sitemap.xml` use it, so change them if the site moves.
 
 ## Running it locally
 

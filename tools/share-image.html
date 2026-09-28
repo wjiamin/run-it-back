@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- The link-preview picture (icons/share.png, 1200×630), shown when the site is shared in chats and social apps.
+     To redraw it: serve the project folder, open this page in a 1200×630 window and screenshot it
+     (for example with Playwright: page.setViewportSize({width:1200,height:630}); page.screenshot({path:'icons/share.png'})). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Share image</title>
+<style>
+  html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+  body{background:#0e1015;color:#eef0f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex;align-items:center;gap:64px;padding:0 88px;box-sizing:border-box}
+  img{width:260px;height:260px;border-radius:56px;flex:none}
+  h1{font-size:84px;margin:0 0 16px;letter-spacing:-1px}
+  p{font-size:38px;line-height:1.3;margin:0;color:#c9ceda}
+  .tags{margin-top:34px;display:flex;gap:14px;flex-wrap:wrap}
+  .tags span{font-size:26px;padding:8px 20px;border-radius:999px;background:#20242e;border:2px solid #2b303c;color:#ff5c9a;font-weight:600}
+</style>
+</head>
+<body>
+  <img src="../icons/icon-512.png" alt="">
+  <div>
+    <h1>Run It Back</h1>
+    <p>Learn K-pop dance covers faster from any YouTube practice video.</p>
+    <div class="tags"><span>Mirrored</span><span>Slowed down</span><span>5-6-7-8 count-ins</span><span>8-count loops</span></div>
+  </div>
+</body>
+</html>
