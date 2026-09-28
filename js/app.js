@@ -25,11 +25,11 @@ import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
-import {loadStore, saveStore, defaultPlan, presets, presetOf} from './storage.js';
+import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-l';
+const APP_VERSION = '2026-09-28-m';
 
 /* ---------- state ---------- */
 
@@ -176,6 +176,9 @@ async function openCover(id){
   cover = store.videos[id] || (store.videos[id] = {id, title: '', period: 0, anchor: null, rangeStart: null, rangeEnd: null, updated: Date.now()});
   taps = []; lastFit = null;
   if (session){ session.stop(); session = null; }
+  // this video's own plan; a new video starts with the plan used last
+  if (cover.plan) Object.assign(settings, pickPlan(cover.plan)); else cover.plan = pickPlan(settings);
+  save(); renderSteps();
   playerReady = false; duration = cover.dur || 0; clockRaw = -1; shownCountKey = ''; zoomed = false;
   adUnlocked = false; adPlaying = false; lastPlayerState = ''; setMore(false);
   log('video', 'open: ' + (hasGrid() ? 'beat set (' + bpm().toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cover.dur || 'none'));
@@ -853,6 +856,7 @@ function showPreset(){
 }
 function planChanged(){
   log('plan', 'plan or options changed');
+  if (cover){ cover.plan = pickPlan(settings); save(); }   // the plan belongs to this video (see storage.js)
   showPreset();
   endSession();
   if (hasRange()) updateRangeLite();
@@ -1242,7 +1246,7 @@ function openShare(){
   $('#shareNotReady').hidden = ready; $('#shareReady').hidden = !ready;
   if (ready){
     $('#sharePlan').checked = settings.sharePlan;
-    $('#sharePlanInfo').textContent = planText(presetOf(settings), counts()) + '. If they use it, it replaces their own plan.';
+    $('#sharePlanInfo').textContent = planText(presetOf(settings), counts()) + '. If they use it, it applies to this video only.';
     $('#shareNative').hidden = !navigator.share;
     updateShareLink();
   }
@@ -1287,14 +1291,15 @@ function renderShared(){
     return;
   }
   const sh = incoming, b = sh.beat, mine = store.videos[sh.id], haveBeat = grid.hasGrid(mine);
-  const n = sh.counts || counts(), nBlocks = Math.max(1, Math.ceil((b.rangeEnd - b.rangeStart) / (n * b.period) - 1e-6));
-  const samePlan = sh.plan && presetOf({...settings, ...sh.plan}) === presetOf(settings) && presetOf(settings) !== 'custom' && n === counts();
+  const n = sh.counts || ((mine && mine.plan) || settings).counts, nBlocks = Math.max(1, Math.ceil((b.rangeEnd - b.rangeStart) / (n * b.period) - 1e-6));
+  const myPlan = (mine && mine.plan) || settings;   // the plan this video would otherwise use
+  const samePlan = sh.plan && JSON.stringify(pickPlan({...sh.plan, counts: n})) === JSON.stringify(pickPlan(myPlan));
   card.innerHTML = '<div class="shHead"><span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(sh.id) + '/mqdefault.jpg" alt="" onerror="this.remove()"></span>' +
     '<div style="min-width:0"><div class="kicker">Shared practice</div><div class="shTitle">' + escapeHtml(sh.title || (mine && mine.title) || 'YouTube video') + '</div>' +
     '<div class="muted small">' + Math.round(60 / b.period) + ' BPM · ' + fmtTime(b.rangeStart) + '–' + fmtTime(b.rangeEnd) + ' · ' + nBlocks + ' block' + (nBlocks > 1 ? 's' : '') + '</div></div></div>' +
     '<p class="muted small note">The beat and part are already set: just press Start.</p>' +
     (sh.plan && !samePlan ? '<label class="switchRow"><input id="shUsePlan" type="checkbox" role="switch" checked><span><b>Also use their practice plan</b>' +
-      '<span class="muted small">' + planText(sh.planName, n) + '. This replaces your current plan.</span></span></label>' : '') +
+      '<span class="muted small">' + planText(sh.planName, n) + ', for this video only. Your other videos keep their own plans.</span></span></label>' : '') +
     (haveBeat ? '<p class="small note" style="color:var(--warn)">You already have this video. Using the shared one replaces your beat and part, and where you got to.</p>' : '') +
     '<div class="row"><button class="btn primary" data-sh="accept">' + (haveBeat ? 'Use the shared one' : 'Start practising') + '</button>' +
     (haveBeat ? '<button class="btn" data-sh="mine">Keep mine</button>' : '<button class="btn" data-sh="close">Not now</button>') + '</div>';
@@ -1303,7 +1308,8 @@ function acceptShared(){
   const sh = incoming, old = store.videos[sh.id], usePlan = $('#shUsePlan');
   const v = store.videos[sh.id] = Object.assign(old || {id: sh.id}, sh.beat, {title: (old && old.title) || sh.title, updated: Date.now()});
   delete v.resume;
-  if (sh.plan && (!usePlan || usePlan.checked)){ Object.assign(settings, sh.plan, {counts: sh.counts}); renderSteps(); }
+  // their plan goes on this video only (openCover loads it); otherwise it keeps its own, or starts with the plan used last
+  if (sh.plan && (!usePlan || usePlan.checked)) v.plan = pickPlan({...sh.plan, counts: sh.counts});
   save();
   log('share', 'used a shared practice' + (sh.plan && (!usePlan || usePlan.checked) ? ', with its plan' : ''));
   countEvent('share-accept');

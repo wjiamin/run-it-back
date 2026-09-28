@@ -9,6 +9,7 @@
        rangeStart, rangeEnd                    the trimmed part to learn, on beats
        oneT                                    a marked 1 that the counts follow
        one1, one2, oneBeats                    the two marked 1s and the beats between them (0 when not locked)
+       plan                                    this video's practice plan: the PLAN_KEYS fields (see below)
        resume                                  where practice stopped, to continue next time:
                                                {part, rate, label, counts, rangeStart, rangeEnd} (see plan.js resumeIndex)
    The field names are kept short and unchanged so older saves keep loading. */
@@ -52,6 +53,13 @@ export const presets = () => ({
     topEvery: 4, fullSteps: ladder([[1, 2]]), leadRepeat: 2, rest: 1},
 });
 
+/* Each video has its own practice plan (cover.plan): the preset fields plus counts per block, which depends on the
+   choreography. Moving on automatically and music stay the same for every video. The plan fields in settings are the
+   plan of the open video, and the one a new video starts with (the plan you used last). */
+export const PLAN_KEYS = [...PRESET_KEYS, 'counts'];
+/** A separate copy of the plan fields of `obj` (settings or a plan). */
+export const pickPlan = obj => JSON.parse(JSON.stringify(Object.fromEntries(PLAN_KEYS.map(k => [k, obj[k]]))));
+
 /** Which preset the settings match: 'chill', 'standard', 'speed', or 'custom'. */
 export function presetOf(settings){
   const norm = v => Array.isArray(v) ? v.map(x => [x.rate, !!x.on, x.reps]) : v;
@@ -79,6 +87,8 @@ export function migrate(saved){
       group: p.group, connectSteps: p.connectSteps, v: SETTINGS_VERSION});
   }
   delete settings.leadIn; delete settings.speeds;
+  // plans became per video: videos saved before that keep the plan they were using
+  for (const v of Object.values(saved.videos)) if (v && !v.plan) v.plan = pickPlan(settings);
   saved.settings = settings;
   return saved;
 }
