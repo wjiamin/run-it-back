@@ -28,7 +28,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf} from './storage.js
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-i';
+const APP_VERSION = '2026-09-28-j';
 
 /* ---------- state ---------- */
 
@@ -1221,7 +1221,7 @@ function wireDebugPanel(){
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
 wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel();
 setupInstall(log);
-setupAnalytics(); setupTips();
+setupAnalytics(log); setupTips();
 renderSteps(); syncControls(); renderHome();
 requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');

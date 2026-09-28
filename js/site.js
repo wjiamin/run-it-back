@@ -10,10 +10,16 @@ export const GOATCOUNTER_CODE = 'runitback';
 /** Your tip page, for example 'https://ko-fi.com/yourname'. Empty = no tip links. */
 export const TIP_URL = 'https://ko-fi.com/runitbackcover';
 
-export function setupAnalytics(){
+/** Load GoatCounter's script, which counts the page view. `log` (optional) notes in the debug log whether it loaded,
+    since ad blockers and privacy browsers often block it. */
+export function setupAnalytics(log){
   if (!GOATCOUNTER_CODE) return;
   const script = document.createElement('script');
   script.async = true;
+  if (log){
+    script.onload = () => log('page', 'visit counts: script loaded' + (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? ' (not counted on localhost)' : ''));
+    script.onerror = () => log('page', 'visit counts: script blocked or offline');
+  }
   script.src = 'https://gc.zgo.at/count.js';
   script.dataset.goatcounter = 'https://' + GOATCOUNTER_CODE + '.goatcounter.com/count';
   document.head.appendChild(script);
