@@ -3,7 +3,7 @@
 import {parseYouTubeId, fmtTime, fmtTimePrecise} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
-import {buildPlan, planCountIn, countInNumber, ladderText, ladderWords, resumeIndex} from './plan.js';
+import {buildPlan, planCountIn, countInNumber, ladderWords, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
@@ -163,7 +163,6 @@ test('presets: changing anything in the plan makes it Custom; other options do n
   const s = defaultSettings(); s.blockSteps[0].reps = 5; eq(presetOf(s), 'custom');
   const t = {...defaultSettings(), auto: false, musicBlocks: false, counts: 4}; eq(presetOf(t), 'standard');
 });
-test('ladderText', () => { eq(ladderText([{rate: 0.5, on: true, reps: 3}, {rate: 1, on: false, reps: 1}]), '0.5× ×3'); eq(ladderText([]), 'none'); });
 
 /* ---- count-in ---- */
 test('count-in: 4 counts before the part', () => {

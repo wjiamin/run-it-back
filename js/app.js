@@ -5,9 +5,11 @@
      plan.js     the practice steps, count-ins, and where to continue
      practice.js the practice session (runs, pauses, count-ins, Again and skipping ahead)
      storage.js  saving on this device
-   and two small helpers that do:
+     share.js    share links: a video's setup packed into a link, and read back
+   and small helpers that do:
      log.js      the debug log
      pwa.js      installing to the home screen and working offline
+     site.js     visit counts and the tip link
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -15,7 +17,7 @@
        moving the practice session along.
 
    Sections, in order: state · helpers · debug report · YouTube player · video layout and full screen · practice session ·
-   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · start */
+   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · sharing · start */
 
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
@@ -29,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-m';
+const APP_VERSION = '2026-09-28-n';
 
 /* ---------- state ---------- */
 
@@ -43,7 +45,8 @@ let playerReady = false;
 let playing = false;
 let duration = 0;                   // the video's own length in seconds (never an ad's)
 let rate = 1;                       // playback speed
-let lastPlayerState = '';           // for the debug log
+let lastPlayerState = '';           // for the debug log, and to know the video has ended (see seek)
+let reloading = false;              // the video is being reloaded after it ended during practice (see seek)
 let clockRaw = -1, clockRawAt = 0;  // see currentTime()
 
 // screen
@@ -180,7 +183,7 @@ async function openCover(id){
   if (cover.plan) Object.assign(settings, pickPlan(cover.plan)); else cover.plan = pickPlan(settings);
   save(); renderSteps();
   playerReady = false; duration = cover.dur || 0; clockRaw = -1; shownCountKey = ''; zoomed = false;
-  adUnlocked = false; adPlaying = false; lastPlayerState = ''; setMore(false);
+  adUnlocked = false; adPlaying = false; lastPlayerState = ''; reloading = false; setMore(false);
   log('video', 'open: ' + (hasGrid() ? 'beat set (' + bpm().toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cover.dur || 'none'));
   setRate(1);
   showView('player'); showStageMessage('Loading video…');
@@ -240,7 +243,7 @@ function onPlayerState(e){
 
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
   if (e.data === STATE.CUED) readVideoInfo(true);
-  if (e.data === STATE.PLAYING){ showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
+  if (e.data === STATE.PLAYING){ reloading = false; showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
   if (e.data === STATE.ENDED && sessionRunning()) session.segmentEnd();   // the part ran to the very end of the video
   clockRaw = -1;
   updateSessionUI(); bumpControls();
@@ -271,14 +274,14 @@ function seek(t){
     // once the video has ended, YouTube doesn't reliably seek back and play (practice sat stuck at the end), and playing
     // it restarts from 0:00. Loading it again from the right place always plays. The speed is set again when it plays.
     log('player', 'video ended during practice: reloading it at ' + fmtTime(t));
-    lastPlayerState = 'reloading';
+    reloading = true;
     player.loadVideoById({videoId: cover.id, startSeconds: Math.max(0, t)});
     return;
   }
   player.seekTo(Math.max(0, t), true);
   if (!wasPlaying) player.pauseVideo();   // seeking a paused or unstarted video would otherwise start it
 }
-function play(){ if (playerReady && lastPlayerState !== 'reloading') player.playVideo(); }   // a reload plays by itself
+function play(){ if (playerReady && !reloading) player.playVideo(); }   // a reload plays by itself
 function pause(){ if (playerReady) player.pauseVideo(); }
 function togglePlay(){ if (!playerReady) return; playing ? player.pauseVideo() : player.playVideo(); }
 function setRate(r){ rate = r; if (playerReady && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
@@ -842,6 +845,7 @@ function renderSteps(){
   showPreset();
 }
 
+const PRESET_NAMES = {chill: 'Chill', standard: 'Standard', speed: 'Speed run'};   // as on the buttons
 const PRESET_INFO = {
   chill: 'Slower, with more repeats, smaller chunks and longer breaks.',
   standard: 'Each block slow, medium, then full speed, 3 runs each. Connected in fours.',
@@ -971,14 +975,16 @@ function refreshAll(){ fixRange(); updateBeatsUI(); if (tab === 'practice') upda
 
 /* ---------- home and screens ---------- */
 
+/** A video's YouTube thumbnail (see .thumb in styles.css: a grey box shows when it can't load). */
+const thumbHtml = id => '<span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg" alt="" loading="lazy" onerror="this.remove()"></span>';
+
 function renderHome(){
   const ids = Object.keys(store.videos).sort((a, b) => store.videos[b].updated - store.videos[a].updated);
   $('#recentCard').hidden = !ids.length;
   $('#recent').innerHTML = ids.map(id => {
     const v = store.videos[id];
     const status = !v.period ? 'Beat not set yet' : (v.resume ? 'Up to ' + v.resume.label + ' · ' : 'Ready to practise · ') + (60 / v.period).toFixed(0) + ' BPM';
-    // YouTube's own thumbnail; the grey box behind it shows when offline
-    return '<li><button class="open" data-id="' + escapeHtml(id) + '"><span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg" alt="" loading="lazy" onerror="this.remove()"></span>' +
+    return '<li><button class="open" data-id="' + escapeHtml(id) + '">' + thumbHtml(id) +
       '<span class="meta"><span class="t">' + escapeHtml(v.title || id) + '</span><span class="muted small">' + status + '</span></span></button>' +
       '<button class="ghost" data-del="' + escapeHtml(id) + '" aria-label="Remove this cover">✕</button></li>';
   }).join('');
@@ -1237,8 +1243,8 @@ function wireDebugPanel(){
 
 /* ---------- sharing (see share.js) ---------- */
 
-const PLAN_NAMES = {chill: 'Chill', standard: 'Standard', speed: 'Speed run'};
-const planText = (name, n) => (PLAN_NAMES[name] ? PLAN_NAMES[name] + ' plan' : 'A custom plan') + ', ' + n + ' counts per block';
+/** "Chill plan, 8 counts per block" */
+const planText = (name, n) => (PRESET_NAMES[name] ? PRESET_NAMES[name] + ' plan' : 'A custom plan') + ', ' + n + ' counts per block';
 const appAddress = () => location.origin + location.pathname;
 
 function openShare(){
@@ -1291,10 +1297,10 @@ function renderShared(){
     return;
   }
   const sh = incoming, b = sh.beat, mine = store.videos[sh.id], haveBeat = grid.hasGrid(mine);
-  const n = sh.counts || ((mine && mine.plan) || settings).counts, nBlocks = Math.max(1, Math.ceil((b.rangeEnd - b.rangeStart) / (n * b.period) - 1e-6));
   const myPlan = (mine && mine.plan) || settings;   // the plan this video would otherwise use
+  const n = sh.counts || myPlan.counts, nBlocks = Math.max(1, Math.ceil((b.rangeEnd - b.rangeStart) / (n * b.period) - 1e-6));
   const samePlan = sh.plan && JSON.stringify(pickPlan({...sh.plan, counts: n})) === JSON.stringify(pickPlan(myPlan));
-  card.innerHTML = '<div class="shHead"><span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(sh.id) + '/mqdefault.jpg" alt="" onerror="this.remove()"></span>' +
+  card.innerHTML = '<div class="shHead">' + thumbHtml(sh.id) +
     '<div style="min-width:0"><div class="kicker">Shared practice</div><div class="shTitle">' + escapeHtml(sh.title || (mine && mine.title) || 'YouTube video') + '</div>' +
     '<div class="muted small">' + Math.round(60 / b.period) + ' BPM · ' + fmtTime(b.rangeStart) + '–' + fmtTime(b.rangeEnd) + ' · ' + nBlocks + ' block' + (nBlocks > 1 ? 's' : '') + '</div></div></div>' +
     '<p class="muted small note">The beat and part are already set: just press Start.</p>' +
@@ -1305,13 +1311,14 @@ function renderShared(){
     (haveBeat ? '<button class="btn" data-sh="mine">Keep mine</button>' : '<button class="btn" data-sh="close">Not now</button>') + '</div>';
 }
 function acceptShared(){
-  const sh = incoming, old = store.videos[sh.id], usePlan = $('#shUsePlan');
+  const sh = incoming, old = store.videos[sh.id], planSwitch = $('#shUsePlan');
+  const usePlan = !!sh.plan && (!planSwitch || planSwitch.checked);   // no switch: their plan is the same as this video's
   const v = store.videos[sh.id] = Object.assign(old || {id: sh.id}, sh.beat, {title: (old && old.title) || sh.title, updated: Date.now()});
   delete v.resume;
   // their plan goes on this video only (openCover loads it); otherwise it keeps its own, or starts with the plan used last
-  if (sh.plan && (!usePlan || usePlan.checked)) v.plan = pickPlan({...sh.plan, counts: sh.counts});
+  if (usePlan) v.plan = pickPlan({...sh.plan, counts: sh.counts});
   save();
-  log('share', 'used a shared practice' + (sh.plan && (!usePlan || usePlan.checked) ? ', with its plan' : ''));
+  log('share', 'used a shared practice' + (usePlan ? ', with its plan' : ''));
   countEvent('share-accept');
   incoming = null; renderShared();
   openCover(sh.id);

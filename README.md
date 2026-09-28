@@ -28,15 +28,15 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `sitemap.xml` | The list of pages for search engines (submit it in Google Search Console). Add new pages to it |
 | `icons/share.png`, `tools/share-image.html` | The link-preview picture, and the page it is drawn from (how to redraw it is at the top of that file) |
 | `styles.css` | All the styling |
-| `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, and keeping the page up to date |
+| `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, keeping the page up to date, and the Share panel and shared-practice card |
 | `js/beats.js` | Working out the tempo, from taps or from two marked 1s |
 | `js/grid.js` | The beat grid: beats, counts, blocks and the trimmed range |
 | `js/plan.js` | The practice plan (blocks, connected runs, from-the-top runs, the whole section, at which speeds), count-ins, and where to continue |
 | `js/practice.js` | The practice session: runs, pauses, count-ins, Again and skipping ahead |
 | `js/share.js` | Share links: packing a cover's setup (and optionally the practice plan) into a link, and reading it back |
-| `js/storage.js` | Saving on the device, and upgrading older saves |
+| `js/storage.js` | Saving on the device, upgrading older saves, the default plan and presets, and each video's own plan |
 | `js/log.js` | The private debug log behind the Log button |
-| `js/site.js` | Visit counts (GoatCounter) and the tip link. Both are off until you fill in the two settings at its top |
+| `js/site.js` | Visit counts (GoatCounter) and the tip link, switched on by the two settings at its top |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
 | `js/util.js` | Small helpers |
 | `sw.js` | Service worker: the app opens offline, and updates never mix old and new files |
