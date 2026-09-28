@@ -205,8 +205,14 @@ html.standalone .vcol{top:env(safe-area-inset-top)}
 .siteFoot{margin-top:24px;text-align:center}
 .siteFoot a,.doc a,.tipLink{color:var(--accent)}
 .siteFoot p{margin:4px 0}
-#sTip{display:inline-block;margin-top:4px}
-#sTip[hidden]{display:none}
+/* Tip button: on the home page card and on the practice card when a range is complete */
+.btn.tipBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 18px;
+  background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;text-decoration:none}
+.tipCard{border-color:var(--accent)}
+.tipCard p{margin:0 0 10px}
+.tipBox{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 2px;padding:10px 12px;
+  border:1px solid var(--accent);border-radius:12px;font-size:14px}
+.tipBox[hidden]{display:none}
 .doc h1{font-size:22px;margin:8px 0 4px}
 .doc h2{font-size:16px;margin:20px 0 6px}
 .doc p,.doc li{max-width:65ch}
@@ -221,3 +227,4 @@ html.standalone .vcol{top:env(safe-area-inset-top)}
 .ctaBox{margin:22px 0;text-align:center}
 .btn.cta{display:inline-flex;align-items:center;min-height:46px;padding:8px 22px;text-decoration:none;font-size:17px;margin-bottom:6px}
 .doc .more{margin-top:28px;border-top:1px solid var(--line);padding-top:4px}
+.tipBox .btn.tipBtn{background:transparent;color:var(--accent);min-height:40px}
