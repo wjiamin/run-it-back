@@ -3,7 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Run It Back</title>
+<title>Run It Back – learn K-pop dance covers faster</title>
+<meta name="description" content="Free dance practice app: paste a YouTube dance practice video to mirror it, slow it down, get a 5-6-7-8 count-in and loop it in 8-count blocks until you've got it.">
+<!-- how the link looks when shared -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Run It Back">
+<meta property="og:title" content="Run It Back – learn K-pop dance covers faster">
+<meta property="og:description" content="Mirror, slow down, count in and loop a YouTube dance practice video in 8-count blocks. Free, works offline, nothing to sign up for.">
+<link rel="canonical" href="https://wjiamin.github.io/run-it-back/">
+<meta property="og:url" content="https://wjiamin.github.io/run-it-back/">
+<meta property="og:image" content="https://wjiamin.github.io/run-it-back/icons/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Run It Back: learn K-pop dance covers faster from any YouTube practice video">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Run It Back","url":"https://wjiamin.github.io/run-it-back/","image":"https://wjiamin.github.io/run-it-back/icons/share.png","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)",
+ "description":"Learn K-pop dance covers faster from a YouTube practice video: mirrored, slowed down, with count-ins, looping 8-count blocks.",
+ "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 <link rel="stylesheet" href="styles.css">
 <!-- installing to the home screen (see js/pwa.js and sw.js) -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -62,11 +80,26 @@
       </ol>
     </div>
 
+    <div class="card">
+      <h2>Guides</h2>
+      <ul class="guideLinks small">
+        <li><a href="guides/how-to-learn-a-kpop-dance-cover.html">How to learn a K-pop dance cover fast</a></li>
+        <li><a href="guides/mirror-youtube-video-for-dance.html">How to mirror a YouTube video for dance practice</a></li>
+        <li><a href="guides/slow-down-youtube-dance-video.html">How to slow down a dance video to learn it</a></li>
+        <li><a href="guides/how-to-count-dance-in-8-counts.html">How to count music in 8-counts</a></li>
+      </ul>
+    </div>
+
     <div id="installCard" class="card" hidden>
       <h2>Use it like an app</h2>
       <p id="iosInstallTip" class="muted small" style="margin:0" hidden>On iPhone or iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, without Safari's bars, and starts even when you're offline.</p>
       <div class="row"><button id="installBtn" class="btn primary" hidden>Install app</button></div>
     </div>
+
+    <footer class="siteFoot small muted">
+      <p><a href="privacy.html">Privacy</a> · Free, no sign-up. Not affiliated with YouTube or any label.</p>
+      <p data-tip hidden>Run It Back is free to use. <a class="tipLink">Support it with a tip ♥</a></p>
+    </footer>
   </section>
 
   <!-- PLAYER -->
@@ -215,6 +248,7 @@
             <div class="card sess">
               <div class="title" id="sTitle">Ready when you are</div>
               <div class="muted small" id="sSub"></div>
+              <a id="sTip" class="tipLink small" hidden>Enjoying Run It Back? Buy me a coffee ☕</a>
               <div class="prog"><i id="sProg"></i></div>
               <div class="row">
                 <button id="sMain" class="btn primary">Start practice</button>

@@ -23,11 +23,12 @@ import * as grid from './grid.js';
 import {buildPlan, enabledSteps, groupSize, topEvery, ladderText, stepLabel, countInNumber, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
+import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {loadStore, saveStore, defaultPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-a';
+const APP_VERSION = '2026-09-28-f';
 
 /* ---------- state ---------- */
 
@@ -179,6 +180,7 @@ async function openCover(id){
   log('video', 'open: ' + (hasGrid() ? 'beat set (' + bpm().toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cover.dur || 'none'));
   setRate(1);
   showView('player'); showStageMessage('Loading video…');
+  countEvent('video-open');
   setTab(hasGrid() ? 'practice' : 'beats');
   $('#heading').textContent = cover.title || 'Loading…';
 
@@ -386,7 +388,7 @@ const practiceEnv = {
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: id => clearTimeout(id),
   onStep: step => { setRate(step.rate); applySound(); rememberProgress(step); },
-  onFinish: () => { applySound(); forgetProgress(); },
+  onFinish: () => { applySound(); forgetProgress(); countEvent('practice-complete'); },
   onChange: () => updateSessionUI(),
 };
 
@@ -433,6 +435,7 @@ function endSession(why){
 /** The big practice button: start (or continue where you left off), carry on after a pause or wait, or play/pause. */
 function onMainButton(){
   if (!session){
+    countEvent('practice-start');
     const resume = resumePoint();
     return resume ? startSession('all', (_, i) => i === resume.index) : startFromBeginning();
   }
@@ -898,6 +901,7 @@ function updateSessionUI(){
   }
   $('#sTitle').textContent = title; $('#sSub').textContent = sub; $('#sMain').textContent = main;
   $('#sProg').style.width = Math.round(progress * 100) + '%';
+  $('#sTip').hidden = !(tipsOn() && s && s.done);
 
   // ◀ Block / Block ▶ move between blocks of the full plan
   const block = currentBlockNum(), span = currentSpan();
@@ -1190,6 +1194,7 @@ function wireDebugPanel(){
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
 wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel();
 setupInstall(log);
+setupAnalytics(); setupTips();
 renderSteps(); syncControls(); renderHome();
 requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
