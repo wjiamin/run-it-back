@@ -6,6 +6,7 @@ import * as grid from './grid.js';
 import {buildPlan, planCountIn, countInNumber, ladderText, ladderWords, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf} from './storage.js';
+import {makeShareLink, parseShare, isShareHash} from './share.js';
 
 const results = [];
 function test(name, fn){
@@ -299,6 +300,54 @@ test('migrate: a current save keeps your choices', () => {
   eq([s.rest, s.flash], [0.5, true]);
 });
 test('migrate: something that is not a save', () => { eq(migrate(null), null); eq(migrate({settings: {}}), null); });
+
+/* ---- share links ---- */
+const BASE = 'https://example.com/run-it-back/';
+const sharedCover = () => ({id: 'dQw4w9WgXcQ', title: 'Supernatural – Dance Practice (Mirrored) & more', period: 0.495634, anchor: 32.4,
+  oneT: 32.4, one1: 32.4, one2: 103.7, oneBeats: 144, rangeStart: 20.5, rangeEnd: 163.8, resume: {part: 'b5'}, dur: 164});
+const hashOf = link => link.slice(link.indexOf('#'));
+test('share link: the beat and part come back, and progress is left out', () => {
+  const link = makeShareLink(BASE, sharedCover(), null);
+  eq(link.startsWith(BASE + '#share=1&'), true, 'starts with the app address');
+  const got = parseShare(hashOf(link));
+  eq([got.id, got.title], ['dQw4w9WgXcQ', 'Supernatural – Dance Practice (Mirrored) & more']);
+  eq(got.beat, {period: 0.495634, anchor: 32.4, rangeStart: 20.5, rangeEnd: 163.8, oneT: 32.4, one1: 32.4, one2: 103.7, oneBeats: 144});
+  eq([got.plan, got.planName, got.counts], [null, null, null], 'no plan');
+  eq(link.includes('resume') || link.includes('b5'), false, 'no progress');
+});
+test('share link: a preset plan goes in by name, with counts per block', () => {
+  const s = {...defaultSettings(), ...presets().chill, counts: 6};
+  const link = makeShareLink(BASE, sharedCover(), s);
+  eq(link.includes('plan=chill'), true);
+  const got = parseShare(hashOf(link));
+  eq([got.planName, got.counts, presetOf({...defaultSettings(), ...got.plan})], ['chill', 6, 'chill']);
+});
+test('share link: a custom plan comes back exactly', () => {
+  const s = defaultSettings();
+  s.blockSteps = [{rate: 0.6, on: true, reps: 5}, {rate: 0.8, on: false, reps: 2}, {rate: 1, on: true, reps: 1}];
+  s.connectSteps = []; Object.assign(s, {group: 3, topOn: false, topEvery: 2, rest: 1.5, leadStart: 8, leadRepeat: 0, fullAfter: false});
+  const got = parseShare(hashOf(makeShareLink(BASE, sharedCover(), s)));
+  eq(got.planName, 'custom');
+  for (const k of Object.keys(got.plan)) eq(got.plan[k], s[k], k);
+});
+test('share link: only the first 1 marked', () => {
+  const c = {...sharedCover(), one1: null, one2: null, oneBeats: 0};
+  const got = parseShare(hashOf(makeShareLink(BASE, c, null)));
+  eq([got.beat.oneT, got.beat.one1, got.beat.one2, got.beat.oneBeats], [32.4, 32.4, null, 0]);
+});
+test('share link: broken or strange links are refused, out-of-range values are limited', () => {
+  const good = hashOf(makeShareLink(BASE, sharedCover(), null));
+  eq(isShareHash(good), true); eq(isShareHash('#other'), false); eq(isShareHash(''), false);
+  eq(parseShare('#share=2&v=dQw4w9WgXcQ&p=0.5&a=1&r=2~10'), null, 'unknown version');
+  eq(parseShare('#share=1&v=<script>&p=0.5&a=1&r=2~10'), null, 'bad video id');
+  eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=abc&a=1&r=2~10'), null, 'no tempo');
+  eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=5&a=1&r=2~10'), null, 'impossible tempo');
+  eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1&r=10~2'), null, 'part ends before it starts');
+  eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1'), null, 'no part');
+  const odd = parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1&r=2~10&n=99&plan=custom&pb=9x99_nonsense&pg=50&prest=0.3');
+  eq([odd.counts, odd.plan.group, odd.plan.rest, odd.plan.blockSteps], [16, 8, 0.5, presets().standard.blockSteps]);
+  eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1&r=2~10&plan=mystery').plan, null, 'unknown preset: no plan');
+});
 
 /* ---- report ---- */
 const failed = results.filter(r => !r.ok);

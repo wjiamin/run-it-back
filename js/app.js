@@ -24,11 +24,12 @@ import {buildPlan, enabledSteps, groupSize, topEvery, ladderWords, stepLabel, co
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
+import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-k';
+const APP_VERSION = '2026-09-28-l';
 
 /* ---------- state ---------- */
 
@@ -1200,7 +1201,7 @@ function wireKeyboard(){
   document.addEventListener('keydown', e => {
     const el = document.activeElement;
     const typing = /INPUT|TEXTAREA/.test(el.tagName) && el.type !== 'range';
-    if (!cover || $('#viewPlayer').hidden || typing) return;
+    if (!cover || $('#viewPlayer').hidden || typing || !$('#sharePanel').hidden || !$('#dbgPanel').hidden) return;
     const k = e.key.toLowerCase();
     if (k === ' '){ e.preventDefault(); togglePlay(); }
     else if (k === 't') tap();
@@ -1230,13 +1231,112 @@ function wireDebugPanel(){
   window.addEventListener('orientationchange', () => setTimeout(() => log('page', 'rotated: window ' + innerWidth + 'x' + innerHeight), 300));
 }
 
+/* ---------- sharing (see share.js) ---------- */
+
+const PLAN_NAMES = {chill: 'Chill', standard: 'Standard', speed: 'Speed run'};
+const planText = (name, n) => (PLAN_NAMES[name] ? PLAN_NAMES[name] + ' plan' : 'A custom plan') + ', ' + n + ' counts per block';
+const appAddress = () => location.origin + location.pathname;
+
+function openShare(){
+  const ready = hasRange();
+  $('#shareNotReady').hidden = ready; $('#shareReady').hidden = !ready;
+  if (ready){
+    $('#sharePlan').checked = settings.sharePlan;
+    $('#sharePlanInfo').textContent = planText(presetOf(settings), counts()) + '. If they use it, it replaces their own plan.';
+    $('#shareNative').hidden = !navigator.share;
+    updateShareLink();
+  }
+  $('#shareMsg').textContent = '';
+  $('#sharePanel').hidden = false; $('#shareClose').focus();
+}
+function closeShare(){ $('#sharePanel').hidden = true; $('#shareBtn').focus(); }
+function updateShareLink(){ $('#shareLink').value = makeShareLink(appAddress(), cover, settings.sharePlan ? settings : null); }
+async function copyShare(){
+  const link = $('#shareLink').value, msg = $('#shareMsg');
+  try { await navigator.clipboard.writeText(link); msg.textContent = 'Copied. Paste it in your group chat.'; }
+  catch { $('#shareLink').select(); msg.textContent = 'Select the link above and copy it.'; }
+  log('share', 'link copied' + (settings.sharePlan ? ', with the plan' : ''));
+  countEvent('share-copy');
+}
+async function nativeShare(){
+  const text = 'Practise ' + (cover.title ? '"' + cover.title + '"' : 'this dance') + ' with me on Run It Back: the beat and part are already set.';
+  try { await navigator.share({title: 'Run It Back', text, url: $('#shareLink').value}); log('share', 'shared from the share menu'); countEvent('share-native'); }
+  catch {}   // closed without sharing
+}
+
+/* Opening a share link: a card at the top of the home page. `incoming` is the link read by parseShare, or false for a
+   broken one. The link is taken out of the address straight away, so a reload doesn't ask again. */
+let incoming = null;
+function checkShareLink(){
+  if (!isShareHash(location.hash)) return;
+  incoming = parseShare(location.hash) || false;
+  history.replaceState(null, '', location.pathname + location.search);
+  log('share', incoming ? 'opened a share link' + (incoming.plan ? ' with a plan' : '') : 'opened a share link that does not work');
+  countEvent('share-open');
+  if (cover) showView('home');
+  renderShared(); scrollTo(0, 0);
+}
+function renderShared(){
+  const card = $('#sharedCard');
+  card.hidden = incoming === null;
+  if (incoming === null) return;
+  if (!incoming){
+    card.innerHTML = '<div class="kicker">Shared practice</div><p class="shTitle">This share link doesn\'t work</p>' +
+      '<p class="muted small" style="margin:0">It may have been cut short when it was copied. Ask for the link again.</p>' +
+      '<div class="row"><button class="btn" data-sh="close">OK</button></div>';
+    return;
+  }
+  const sh = incoming, b = sh.beat, mine = store.videos[sh.id], haveBeat = grid.hasGrid(mine);
+  const n = sh.counts || counts(), nBlocks = Math.max(1, Math.ceil((b.rangeEnd - b.rangeStart) / (n * b.period) - 1e-6));
+  const samePlan = sh.plan && presetOf({...settings, ...sh.plan}) === presetOf(settings) && presetOf(settings) !== 'custom' && n === counts();
+  card.innerHTML = '<div class="shHead"><span class="thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(sh.id) + '/mqdefault.jpg" alt="" onerror="this.remove()"></span>' +
+    '<div style="min-width:0"><div class="kicker">Shared practice</div><div class="shTitle">' + escapeHtml(sh.title || (mine && mine.title) || 'YouTube video') + '</div>' +
+    '<div class="muted small">' + Math.round(60 / b.period) + ' BPM · ' + fmtTime(b.rangeStart) + '–' + fmtTime(b.rangeEnd) + ' · ' + nBlocks + ' block' + (nBlocks > 1 ? 's' : '') + '</div></div></div>' +
+    '<p class="muted small note">The beat and part are already set: just press Start.</p>' +
+    (sh.plan && !samePlan ? '<label class="switchRow"><input id="shUsePlan" type="checkbox" role="switch" checked><span><b>Also use their practice plan</b>' +
+      '<span class="muted small">' + planText(sh.planName, n) + '. This replaces your current plan.</span></span></label>' : '') +
+    (haveBeat ? '<p class="small note" style="color:var(--warn)">You already have this video. Using the shared one replaces your beat and part, and where you got to.</p>' : '') +
+    '<div class="row"><button class="btn primary" data-sh="accept">' + (haveBeat ? 'Use the shared one' : 'Start practising') + '</button>' +
+    (haveBeat ? '<button class="btn" data-sh="mine">Keep mine</button>' : '<button class="btn" data-sh="close">Not now</button>') + '</div>';
+}
+function acceptShared(){
+  const sh = incoming, old = store.videos[sh.id], usePlan = $('#shUsePlan');
+  const v = store.videos[sh.id] = Object.assign(old || {id: sh.id}, sh.beat, {title: (old && old.title) || sh.title, updated: Date.now()});
+  delete v.resume;
+  if (sh.plan && (!usePlan || usePlan.checked)){ Object.assign(settings, sh.plan, {counts: sh.counts}); renderSteps(); }
+  save();
+  log('share', 'used a shared practice' + (sh.plan && (!usePlan || usePlan.checked) ? ', with its plan' : ''));
+  countEvent('share-accept');
+  incoming = null; renderShared();
+  openCover(sh.id);
+}
+function wireShare(){
+  $('#shareBtn').addEventListener('click', openShare);
+  $('#shareClose').addEventListener('click', closeShare);
+  $('#sharePanel').addEventListener('click', e => { if (e.target === $('#sharePanel')) closeShare(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sharePanel').hidden){ e.preventDefault(); closeShare(); } });
+  $('#sharePlan').addEventListener('change', e => { settings.sharePlan = e.target.checked; save(); updateShareLink(); $('#shareMsg').textContent = ''; });
+  $('#shareLink').addEventListener('focus', e => e.target.select());
+  $('#shareCopy').addEventListener('click', copyShare);
+  $('#shareNative').addEventListener('click', nativeShare);
+  $('#sharedCard').addEventListener('click', e => {
+    const b = e.target.closest('[data-sh]');
+    if (!b) return;
+    if (b.dataset.sh === 'accept') return acceptShared();
+    const id = incoming && incoming.id;
+    incoming = null; renderShared();
+    if (b.dataset.sh === 'mine') openCover(id);
+  });
+  window.addEventListener('hashchange', checkShareLink);   // a share link pasted into an open tab
+}
+
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare();
 setupInstall(log);
 setupAnalytics(log); setupTips();
-renderSteps(); syncControls(); renderHome();
+renderSteps(); syncControls(); renderHome(); checkShareLink();
 requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
 
