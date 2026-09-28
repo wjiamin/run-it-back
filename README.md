@@ -8,7 +8,7 @@ A small web app for learning K-pop dance covers faster from a YouTube practice v
 - Trim the part you want to learn. It is cut into 8-count blocks automatically
 - Each block starts on a 5-6-7-8 count-in and runs through your speeds (slow, faster, full speed), with a short pause after each run
 - Every few blocks are connected together, then the whole section runs with the music
-- Pick a practice plan (Chill, Standard or Speed run), or customise the speeds, repeats, count-ins, pauses and block sizes
+- Each video has its own practice plan: pick Chill, Standard or Speed run, or customise the speeds, repeats, count-ins, pauses and block sizes
 - As you add blocks, everything learned so far runs from the top (1–2, then 1–3, then 1–4…)
 - Share a practice as a link: whoever opens it gets the video with the beat and part already set, and your practice plan if you choose
 - Again redoes a run, Next skips to the next speed, and next time you can continue where you left off

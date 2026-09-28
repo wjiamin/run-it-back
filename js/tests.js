@@ -5,7 +5,7 @@ import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
 import * as grid from './grid.js';
 import {buildPlan, planCountIn, countInNumber, ladderText, ladderWords, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
-import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf} from './storage.js';
+import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 
 const results = [];
@@ -298,6 +298,15 @@ test('migrate: a first-version save gets the new settings and keeps its speeds',
 test('migrate: a current save keeps your choices', () => {
   const s = migrate({settings: Object.assign(defaultSettings(), {rest: 0.5, flash: true}), videos: {}}).settings;
   eq([s.rest, s.flash], [0.5, true]);
+});
+test('migrate: videos saved before plans were per video keep the plan they were using', () => {
+  const settings = {...defaultSettings(), ...presets().speed, counts: 6, auto: false};
+  const saved = migrate({settings, videos: {a: {id: 'a'}, b: {id: 'b', plan: {...pickPlan(defaultSettings())}}}});
+  eq(presetOf(saved.videos.a.plan), 'speed'); eq(saved.videos.a.plan.counts, 6);
+  eq(presetOf(saved.videos.b.plan), 'standard', 'a video with its own plan keeps it');
+  eq(Object.keys(saved.videos.a.plan), PLAN_KEYS, 'only plan fields (not auto or music)');
+  saved.videos.a.plan.blockSteps[0].reps = 9;
+  eq(saved.settings.blockSteps[0].reps, 2, 'a separate copy');
 });
 test('migrate: something that is not a save', () => { eq(migrate(null), null); eq(migrate({settings: {}}), null); });
 
