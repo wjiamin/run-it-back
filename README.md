@@ -23,6 +23,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 |---|---|
 | `index.html` | The page markup, plus the search and link-preview details in its `<head>` |
 | `privacy.html` | The privacy page (linked from the home page footer). Update it before adding analytics, ads or anything that sends data |
+| `guides/` | Practice guides for search engines to find (each links back to the app). Add new ones to `guides/index.html`, the Guides card in `index.html` and `sitemap.xml` |
 | `sitemap.xml` | The list of pages for search engines (submit it in Google Search Console). Add new pages to it |
 | `icons/share.png`, `tools/share-image.html` | The link-preview picture, and the page it is drawn from (how to redraw it is at the top of that file) |
 | `styles.css` | All the styling |
