@@ -2,6 +2,7 @@
    It behaves like the real one where the app depends on it:
      - time runs at the playback rate while playing, and the clock only updates a few times a second
      - it stops at the end of the video (ENDED)
+     - it is ready a moment after it is made (window.__ytReady ms, 50 by default), like a real player loading
      - commands take effect a moment later (window.__ytDelay ms, 150 by default)
      - once ENDED, seekTo is ignored and playVideo restarts from 0:00 (what a real player did in a debug report)
      - loadVideoById({startSeconds}) always plays from there, at 1× (the app sets the speed again)
@@ -13,7 +14,7 @@
     constructor(el, opts){
       this.o = opts; this.t = 0; this.rate = 1; this.state = S.CUED; this.dur = window.__ytDuration || 29.7;
       window.__yt.player = this;
-      setTimeout(() => { opts.events.onReady({target: this}); this.emit(S.CUED); }, 50);
+      setTimeout(() => { opts.events.onReady({target: this}); this.emit(S.CUED); }, window.__ytReady || 50);
       setInterval(() => {
         if (this.state !== S.PLAYING) return;
         this.t += 0.05 * this.rate;

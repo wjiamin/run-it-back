@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-28-n';
+const APP_VERSION = '2026-09-29-a';
 
 /* ---------- state ---------- */
 
@@ -215,6 +215,8 @@ function onPlayerReady(){
   playerReady = true;
   log('player', 'ready');
   showStageMessage(''); player.setPlaybackRate(rate); captionsOff(); applySound(); readVideoInfo(false); layoutVideo();
+  // Start was pressed while the video was still loading: the seek and play went nowhere, so start the run properly now
+  if (sessionRunning()){ log('practice', 'the video is ready: starting the run'); session.startRun(0); }
 }
 
 /* The video's title and length are read only while it is cued, before anything plays. Once it plays, an ad can report its
