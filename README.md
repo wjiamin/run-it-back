@@ -43,6 +43,8 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `manifest.webmanifest`, `icons/` | The installed app's name and icons |
 | `tools/make-icons.rb` | Draws the icons (`ruby tools/make-icons.rb`) |
 | `tests.html`, `js/tests.js` | Tests for the logic modules |
+| `e2e/` | Browser tests: the whole app in a real browser, with a pretend YouTube player (see Tests below) |
+| `.github/workflows/tests.yml` | Runs the browser tests on GitHub for every pull request |
 
 `beats.js`, `grid.js`, `plan.js` and `practice.js` never touch the page, so they can be tested on their own (the practice
 session is tested with a pretend player and clock).
@@ -61,6 +63,29 @@ ruby -run -e httpd -- . -p 5173
 Opening `index.html` directly from disk won't work: JavaScript modules and YouTube's player both need a web address.
 
 Open `tests.html` on the same server to run the tests.
+
+## Tests
+
+There are two kinds:
+
+- **Logic tests** (`tests.html`, `js/tests.js`): open `tests.html` on the local server. They cover the modules that never touch
+  the page: tempo, beat grid, practice plan, practice session, saving, presets and share links.
+- **Browser tests** (`e2e/`): the whole app in a real browser, using [Playwright](https://playwright.dev). YouTube is swapped for a
+  pretend player (`e2e/fake-youtube.js`) that behaves like the real one where it matters (including the way it gets stuck at the end
+  of a video), and visit counting is blocked. They check every page loads and fits a phone, sharing and opening share links,
+  per-video plans, and practice at the end of a video. They also run the logic tests.
+
+GitHub runs both on every pull request (`.github/workflows/tests.yml`); a failing run keeps its report for 14 days.
+To run them yourself (needs [Node.js](https://nodejs.org) 22 or later):
+
+```
+cd e2e
+npm install
+npx playwright install chromium
+npx playwright test
+```
+
+The app itself still has no dependencies: Playwright is only for testing.
 
 ## Releasing
 

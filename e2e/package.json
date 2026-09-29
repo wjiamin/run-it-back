@@ -1,0 +1,12 @@
+{
+  "name": "run-it-back-e2e",
+  "private": true,
+  "description": "Browser tests for Run It Back. The app itself has no dependencies; these are only for testing.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
