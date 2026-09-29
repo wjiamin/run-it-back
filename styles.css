@@ -265,7 +265,7 @@ body.fsmode .vcol{z-index:150}
 .chip.playing span{color:var(--accent-ink)}
 .cue{position:absolute;left:14px;top:8px;z-index:3;font-size:clamp(44px,9vw,96px);font-weight:800;line-height:1;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.75);pointer-events:none;font-variant-numeric:tabular-nums}
 .cgrp{margin-top:12px}
-.cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.cgrp .cl{font-size:12px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cgrp .chips{margin-top:0}
 .chip.conn{border-style:dashed;border-color:var(--accent)}
 /* pop-up panels: the debug log and Share */

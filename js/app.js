@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-29-a';
+const APP_VERSION = '2026-09-29-d';
 
 /* ---------- state ---------- */
 
@@ -467,7 +467,8 @@ function skipAhead(){ if (session) session.skip(); }
    the plan finishes. It only applies while the range and counts per block are unchanged (see plan.js resumeIndex). */
 function rememberProgress(step){
   if (session.mode !== 'all') return;
-  cover.resume = {part: step.part, rate: step.rate, label: stepLabel(step), counts: counts(), rangeStart: cover.rangeStart, rangeEnd: cover.rangeEnd};
+  cover.resume = {part: step.part, rate: step.rate, label: stepLabel(step), counts: counts(), rangeStart: cover.rangeStart, rangeEnd: cover.rangeEnd,
+    blocks: blocks().length};
   saveCover();
 }
 function forgetProgress(){ if (cover.resume && session.mode === 'all'){ delete cover.resume; saveCover(); } }
@@ -475,7 +476,7 @@ function forgetProgress(){ if (cover.resume && session.mode === 'all'){ delete c
 function resumePoint(){
   if (!hasRange() || !cover.resume) return null;
   const plan = buildCurrentPlan('all');
-  const index = resumeIndex(plan, cover.resume, {s: cover.rangeStart, e: cover.rangeEnd, counts: counts(), period: cover.period});
+  const index = resumeIndex(plan, cover.resume, {s: cover.rangeStart, e: cover.rangeEnd, counts: counts(), period: cover.period, blocks: blocks().length});
   return index > 0 ? {index, step: plan[index]} : null;
 }
 
@@ -876,7 +877,8 @@ function renderChips(){
   let html = '';
   for (let g = 0; g * G < list.length; g++){
     const group = list.slice(g * G, (g + 1) * G), a = group[0].n, b = group[group.length - 1].n;
-    html += '<div class="cgrp"><div class="cl">' + (group.length > 1 ? 'Blocks ' + a + '–' + b : 'Block ' + a) + '</div><div class="chips">' +
+    // just the numbers ("13–16"): "Blocks 13–16" is too wide for a column on some phones and pushed its blocks down a line
+    html += '<div class="cgrp"><div class="cl">' + (group.length > 1 ? a + '–' + b : a) + '</div><div class="chips">' +
       group.map(x => '<button class="chip" data-n="' + x.n + '"><b>' + x.n + '</b><span>' + Math.round((x.e - x.s) / cover.period) + ' counts</span></button>').join('') +
       (settings.connectOn && group.length > 1 ? '<button class="chip conn" data-c="' + g + '"><b>▶ ' + a + '–' + b + '</b><span>together</span></button>' : '') +
       '</div></div>';
@@ -1270,10 +1272,12 @@ async function copyShare(){
   log('share', 'link copied' + (settings.sharePlan ? ', with the plan' : ''));
   countEvent('share-copy');
 }
+/** The phone's share menu. Only the link (and a title): with extra text as well, AirDrop sends a separate note that the
+    other device opens instead of the link. */
 async function nativeShare(){
-  const text = 'Practise ' + (cover.title ? '"' + cover.title + '"' : 'this dance') + ' with me on Run It Back: the beat and part are already set.';
-  try { await navigator.share({title: 'Run It Back', text, url: $('#shareLink').value}); log('share', 'shared from the share menu'); countEvent('share-native'); }
-  catch {}   // closed without sharing
+  const title = cover.title ? 'Practise "' + cover.title + '" on Run It Back' : 'Practise this dance on Run It Back';
+  try { await navigator.share({title, url: $('#shareLink').value}); log('share', 'shared from the share menu'); countEvent('share-native'); }
+  catch (e){ if (e.name !== 'AbortError') log('error', 'share menu failed: ' + e.name + ': ' + e.message); }   // AbortError: closed without sharing
 }
 
 /* Opening a share link: a card at the top of the home page. `incoming` is the link read by parseShare, or false for a
