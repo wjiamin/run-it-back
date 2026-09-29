@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-29-b';
+const APP_VERSION = '2026-09-29-c';
 
 /* ---------- state ---------- */
 
@@ -877,7 +877,8 @@ function renderChips(){
   let html = '';
   for (let g = 0; g * G < list.length; g++){
     const group = list.slice(g * G, (g + 1) * G), a = group[0].n, b = group[group.length - 1].n;
-    html += '<div class="cgrp"><div class="cl">' + (group.length > 1 ? 'Blocks ' + a + '–' + b : 'Block ' + a) + '</div><div class="chips">' +
+    // just the numbers ("13–16"): "Blocks 13–16" is too wide for a column on some phones and pushed its blocks down a line
+    html += '<div class="cgrp"><div class="cl">' + (group.length > 1 ? a + '–' + b : a) + '</div><div class="chips">' +
       group.map(x => '<button class="chip" data-n="' + x.n + '"><b>' + x.n + '</b><span>' + Math.round((x.e - x.s) / cover.period) + ' counts</span></button>').join('') +
       (settings.connectOn && group.length > 1 ? '<button class="chip conn" data-c="' + g + '"><b>▶ ' + a + '–' + b + '</b><span>together</span></button>' : '') +
       '</div></div>';
