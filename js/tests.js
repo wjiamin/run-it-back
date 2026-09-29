@@ -179,7 +179,7 @@ test('count-in: none, and the numbers shown', () => {
 
 /* ---- continue where you left off ---- */
 const twoBlockPlan = () => buildPlan(planSettings({connectOn: false}), blocks5.slice(0, 2), {s: 4, e: 12}, 'all');   // b1@0.5 b1@1 b2@0.5 b2@1 full@1
-const here = {s: 4, e: 12, counts: 8, period: 0.5};
+const here = {s: 4, e: 12, counts: 8, period: 0.5, blocks: 2};
 test('resume: finds the same part at the same speed', () => {
   eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 4, rangeEnd: 12}, here), 3);
 });
@@ -189,6 +189,16 @@ test('resume: same part if that speed is gone, and nothing if the range or count
   eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 8, rangeEnd: 12}, here), -1, 'range changed');
   eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 4, rangeStart: 4, rangeEnd: 12}, here), -1, 'counts changed');
   eq(resumeIndex(twoBlockPlan(), null, here), -1, 'nothing saved');
+});
+test('resume: after fixing the beat, kept while there are about as many blocks and each end moved less than a block', () => {
+  const saved = {part: 'b2', rate: 1, counts: 8, blocks: 2};
+  const long = buildPlan(planSettings({connectOn: false}), blocks5, {s: 4, e: 24}, 'all'), here5 = {s: 4, e: 24, counts: 8, period: 0.5, blocks: 5};
+  eq(resumeIndex(long, {part: 'b3', rate: 1, counts: 8, blocks: 4, rangeStart: 4, rangeEnd: 23.8}, here5) > 0, true, 'a new tempo added a last block');
+  eq(resumeIndex(long, {part: 'b3', rate: 1, counts: 8, blocks: 7, rangeStart: 4, rangeEnd: 24}, here5), -1, 'two blocks more');
+  eq(resumeIndex(twoBlockPlan(), {...saved, rangeStart: 3.4, rangeEnd: 11.2}, here), 3, '1 marked again: moved under a block (4 s)');
+  eq(resumeIndex(twoBlockPlan(), {...saved, rangeStart: 0, rangeEnd: 12}, here), -1, 'moved a whole block');
+  eq(resumeIndex(twoBlockPlan(), {...saved, blocks: 4, rangeStart: 4, rangeEnd: 12}, here), -1, 'counting twice as fast: the part stays, the blocks double');
+  eq(resumeIndex(twoBlockPlan(), {part: 'b2', rate: 1, counts: 8, rangeStart: 3.4, rangeEnd: 11.2}, here), -1, 'older progress without blocks: strict');
 });
 
 /* ---- the practice session, with a pretend player and clock ---- */

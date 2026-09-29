@@ -11,7 +11,7 @@
        one1, one2, oneBeats                    the two marked 1s and the beats between them (0 when not locked)
        plan                                    this video's practice plan: the PLAN_KEYS fields (see below)
        resume                                  where practice stopped, to continue next time:
-                                               {part, rate, label, counts, rangeStart, rangeEnd} (see plan.js resumeIndex)
+                                               {part, rate, label, counts, rangeStart, rangeEnd, blocks} (see plan.js resumeIndex)
    The field names are kept short and unchanged so older saves keep loading. */
 
 // the key still says "coverLearner" (the app's first name), so covers saved before the rename still load

@@ -110,17 +110,24 @@ export function planCountIn(step, lead, period){
 }
 
 /**
- * Where to continue a plan from saved progress (see storage.js, cover.resume).
- * The progress only counts if the trimmed range and counts per block haven't changed (within half a beat, so a small
- * timing nudge keeps it). Finds the same part at the same speed, else the same part.
- * @param saved {part, rate, counts, rangeStart, rangeEnd}
- * @param now   {s, e, counts, period} the current range, counts per block and seconds per beat
+ * Where to continue a plan from saved progress (see storage.js, cover.resume). Parts are numbered by block ("block 3"),
+ * so the progress only counts while the blocks are still the same ones:
+ *   - the counts per block are the same, and
+ *   - the number of blocks is about the same: at most one more or fewer (a new tempo can add or drop a last, partial
+ *     block), and not half or twice as many (counting half or twice as fast: "block 3" is somewhere else now), and
+ *   - each end of the trimmed part moved by less than a block (a 1 marked again, a new tempo). Progress saved before the
+ *     number of blocks was kept can't tell, so it only allows half a beat (a small timing nudge).
+ * Finds the same part at the same speed, else the same part.
+ * @param saved {part, rate, counts, rangeStart, rangeEnd, blocks}   (blocks: missing in progress saved before it was added)
+ * @param now   {s, e, counts, period, blocks} the current range, counts per block, seconds per beat and number of blocks
  * @returns the step index, or -1
  */
 export function resumeIndex(plan, saved, now){
   if (!saved || saved.counts !== now.counts) return -1;
-  const tolerance = now.period / 2;
-  if (Math.abs(saved.rangeStart - now.s) > tolerance || Math.abs(saved.rangeEnd - now.e) > tolerance) return -1;
+  const was = saved.blocks, is = now.blocks;
+  if (was != null && (Math.abs(was - is) > 1 || Math.max(was, is) > 1.5 * Math.min(was, is))) return -1;
+  const moved = Math.max(Math.abs(saved.rangeStart - now.s), Math.abs(saved.rangeEnd - now.e));
+  if (was == null ? moved > now.period / 2 : moved >= now.counts * now.period) return -1;
   const sameSpeed = plan.findIndex(st => st.part === saved.part && st.rate === saved.rate);
   return sameSpeed >= 0 ? sameSpeed : plan.findIndex(st => st.part === saved.part);
 }

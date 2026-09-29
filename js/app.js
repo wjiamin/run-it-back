@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-29-a';
+const APP_VERSION = '2026-09-29-b';
 
 /* ---------- state ---------- */
 
@@ -467,7 +467,8 @@ function skipAhead(){ if (session) session.skip(); }
    the plan finishes. It only applies while the range and counts per block are unchanged (see plan.js resumeIndex). */
 function rememberProgress(step){
   if (session.mode !== 'all') return;
-  cover.resume = {part: step.part, rate: step.rate, label: stepLabel(step), counts: counts(), rangeStart: cover.rangeStart, rangeEnd: cover.rangeEnd};
+  cover.resume = {part: step.part, rate: step.rate, label: stepLabel(step), counts: counts(), rangeStart: cover.rangeStart, rangeEnd: cover.rangeEnd,
+    blocks: blocks().length};
   saveCover();
 }
 function forgetProgress(){ if (cover.resume && session.mode === 'all'){ delete cover.resume; saveCover(); } }
@@ -475,7 +476,7 @@ function forgetProgress(){ if (cover.resume && session.mode === 'all'){ delete c
 function resumePoint(){
   if (!hasRange() || !cover.resume) return null;
   const plan = buildCurrentPlan('all');
-  const index = resumeIndex(plan, cover.resume, {s: cover.rangeStart, e: cover.rangeEnd, counts: counts(), period: cover.period});
+  const index = resumeIndex(plan, cover.resume, {s: cover.rangeStart, e: cover.rangeEnd, counts: counts(), period: cover.period, blocks: blocks().length});
   return index > 0 ? {index, step: plan[index]} : null;
 }
 
