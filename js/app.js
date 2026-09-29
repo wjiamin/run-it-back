@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-29-c';
+const APP_VERSION = '2026-09-29-d';
 
 /* ---------- state ---------- */
 
@@ -1272,10 +1272,12 @@ async function copyShare(){
   log('share', 'link copied' + (settings.sharePlan ? ', with the plan' : ''));
   countEvent('share-copy');
 }
+/** The phone's share menu. Only the link (and a title): with extra text as well, AirDrop sends a separate note that the
+    other device opens instead of the link. */
 async function nativeShare(){
-  const text = 'Practise ' + (cover.title ? '"' + cover.title + '"' : 'this dance') + ' with me on Run It Back: the beat and part are already set.';
-  try { await navigator.share({title: 'Run It Back', text, url: $('#shareLink').value}); log('share', 'shared from the share menu'); countEvent('share-native'); }
-  catch {}   // closed without sharing
+  const title = cover.title ? 'Practise "' + cover.title + '" on Run It Back' : 'Practise this dance on Run It Back';
+  try { await navigator.share({title, url: $('#shareLink').value}); log('share', 'shared from the share menu'); countEvent('share-native'); }
+  catch (e){ if (e.name !== 'AbortError') log('error', 'share menu failed: ' + e.name + ': ' + e.message); }   // AbortError: closed without sharing
 }
 
 /* Opening a share link: a card at the top of the home page. `incoming` is the link read by parseShare, or false for a

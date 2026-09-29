@@ -30,6 +30,21 @@ test('the Share button shows only while practising, and Copy copies the link', a
   await expect(page.locator('#sharePanel')).toBeHidden();
 });
 
+test('the phone share menu gets only the link and a title (with extra text, AirDrop sends a note instead)', async ({page}) => {
+  await page.addInitScript(() => { navigator.share = async data => { window.__shared = data; }; });
+  const link = await makeLink(page, {withPlan: true});
+  await page.click('#shareNative');
+  expect(await page.evaluate(() => window.__shared)).toEqual({title: 'Practise "Test video" on Run It Back', url: link});
+});
+
+test('a share menu failure is noted in the debug log', async ({page}) => {
+  await page.addInitScript(() => { navigator.share = async () => { throw new DOMException('Share failed', 'NotAllowedError'); }; });
+  await makeLink(page, {withPlan: true});
+  await page.click('#shareNative');
+  await page.click('#shareClose'); await page.click('#dbgBtn');
+  await expect(page.locator('#dbgText')).toHaveValue(/share menu failed: NotAllowedError: Share failed/);
+});
+
 test('the plan switch takes the plan out of the link', async ({page}) => {
   const link = await makeLink(page, {withPlan: false});
   expect(link).not.toContain('plan=');
