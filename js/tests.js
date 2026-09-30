@@ -7,6 +7,7 @@ import {buildPlan, planCountIn, countInNumber, ladderWords, resumeIndex} from '.
 import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
+import {nearestCorner, cameraProblem} from './camera.js';
 
 const results = [];
 function test(name, fn){
@@ -373,6 +374,17 @@ test('share link: broken or strange links are refused, out-of-range values are l
   const odd = parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1&r=2~10&n=99&plan=custom&pb=9x99_nonsense&pg=50&prest=0.3');
   eq([odd.counts, odd.plan.group, odd.plan.rest, odd.plan.blockSteps], [16, 8, 0.5, presets().standard.blockSteps]);
   eq(parseShare('#share=1&v=dQw4w9WgXcQ&p=0.5&a=1&r=2~10&plan=mystery').plan, null, 'unknown preset: no plan');
+});
+
+/* ---- your camera ---- */
+test('the camera window goes to the nearest corner', () => {
+  eq([nearestCorner(10, 10, 400, 300), nearestCorner(390, 20, 400, 300), nearestCorner(30, 280, 400, 300), nearestCorner(300, 200, 400, 300)],
+    ['tl', 'tr', 'bl', 'br']);
+});
+test('camera errors become a reason to show', () => {
+  eq(['NotAllowedError', 'SecurityError', 'NotFoundError', 'NotReadableError', 'OverconstrainedError', 'AbortError'].map(name => cameraProblem({name})),
+    ['blocked', 'blocked', 'no camera', 'no camera', 'no camera', 'failed']);
+  eq(cameraProblem(undefined), 'failed');
 });
 
 /* ---- report ---- */

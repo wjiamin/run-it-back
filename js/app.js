@@ -11,6 +11,7 @@
      pwa.js      installing to the home screen and working offline
      site.js     visit counts and the tip link
      wakelock.js keeping the screen on while a video is open
+     camera.js   your camera in a corner of the video ("📷 Me")
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -18,7 +19,8 @@
        moving the practice session along.
 
    Sections, in order: state · helpers · debug report · YouTube player · video layout and full screen · practice session ·
-   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · sharing · start */
+   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · your camera · sharing ·
+   start */
 
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
@@ -27,13 +29,14 @@ import {buildPlan, enabledSteps, groupSize, topEvery, ladderWords, stepLabel, co
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {keepScreenOn} from './wakelock.js';
+import {selfView, dragToCorners, CORNERS} from './camera.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-d';
+const APP_VERSION = '2026-09-30-e';
 
 /* ---------- state ---------- */
 
@@ -134,7 +137,8 @@ function debugReport(){
       ', flash ' + (settings.flash ? 'on' : 'off') + ', click ' + (settings.click ? 'on' : 'off'));
     lines.push('video: length ' + (duration || '?') + ' s, ' + (playerReady ? (playing ? 'playing' : 'not playing') : 'player not ready') +
       ', speed ' + rate + 'x, sound ' + (soundOff ? 'off' : 'on') + ', ad ' + (adPlaying ? 'playing' : adUnlocked ? 'unlocked by hand' : 'no'));
-    lines.push('full screen: ' + (fsOn ? (fsFallback ? 'on (fallback layout)' : 'on (browser)') : 'off') + ', screen kept on: ' + screenOn.status());
+    lines.push('full screen: ' + (fsOn ? (fsFallback ? 'on (fallback layout)' : 'on (browser)') : 'off') + ', screen kept on: ' + screenOn.status() +
+      ', camera ' + (me.on ? 'on' : me.problem ? 'off (' + me.problem + ')' : 'off'));
     if (hasRange()) lines.push('range: ' + fmtTimePrecise(cover.rangeStart) + ' to ' + fmtTimePrecise(cover.rangeEnd) + ', ' + rangeCounts() + ' counts, ' + blocks().length + ' blocks');
     lines.push('practice: ' + (!session ? 'not running' : session.done ? 'complete'
       : 'step ' + (session.index + 1) + ' of ' + session.plan.length + ', rep ' + (session.rep + 1) +
@@ -1032,6 +1036,7 @@ function showView(view){
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
   screenOn.want(view === 'player');
+  if (view === 'home') me.stop();
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();
@@ -1275,6 +1280,37 @@ function wireDebugPanel(){
   window.addEventListener('orientationchange', () => setTimeout(() => log('page', 'rotated: window ' + innerWidth + 'x' + innerHeight), 300));
 }
 
+/* ---------- your camera (see camera.js) ---------- */
+
+const ME_PROBLEMS = {
+  blocked: 'The camera is blocked. Allow camera access for this site in your browser settings, then press 📷 Me again.',
+  'no camera': 'No camera was found, or another app is using it.',
+  unsupported: "This browser can't show your camera.",
+  failed: "The camera couldn't start. Try again.",
+};
+const me = selfView({box: $('#meBox'), video: $('#meVideo'), log, onChange: syncMe});
+
+/** The 📷 Me button, and a note when the camera couldn't start. */
+function syncMe(){
+  $('#meBtn').setAttribute('aria-pressed', me.on);
+  const note = me.problem ? ME_PROBLEMS[me.problem] : '';
+  $('#meNote').textContent = note; $('#meNote').hidden = !note;
+}
+function placeMe(corner){ for (const c of CORNERS) $('#meBox').classList.toggle(c, c === corner); }
+async function toggleMe(){
+  if (me.on) return me.stop();
+  if (await me.start()) countEvent('camera-on');
+}
+function wireMe(){
+  placeMe(settings.meCorner);
+  $('#meBtn').addEventListener('click', toggleMe);
+  $('#meClose').addEventListener('click', () => me.stop());
+  dragToCorners($('#meBox'), $('#stage'), corner => {
+    settings.meCorner = corner; save(); placeMe(corner);
+    log('camera', 'moved to the ' + corner + ' corner');
+  });
+}
+
 /* ---------- sharing (see share.js) ---------- */
 
 /** "Chill plan, 8 counts per block" */
@@ -1382,7 +1418,7 @@ function wireShare(){
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe();
 setupInstall(log);
 setupAnalytics(log); setupTips();
 renderSteps(); syncControls(); renderHome(); checkShareLink();
