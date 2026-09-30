@@ -34,7 +34,7 @@ test('pausing by tapping the video shows the card; tapping the card carries on',
   await page.click('#sMain');
   await expect(page.locator('#playBtn')).toHaveText('❚❚');
   await page.click('#shield');
-  await expect(page.locator('#pcHead')).toHaveText('Paused');
+  await expect(page.locator('#pcHead')).toHaveText('Block 1 of 5');
   await expect(page.locator('#pcAct')).toHaveText('▶ Resume');
   await page.click('#pauseCard');
   await expect(page.locator('#playBtn')).toHaveText('❚❚');

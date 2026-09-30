@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-b';
+const APP_VERSION = '2026-09-30-c';
 
 /* ---------- state ---------- */
 
@@ -908,7 +908,6 @@ function stepTitle(st, nb){
   return 'Block ' + st.block + ' of ' + nb;
 }
 
-/** The practice card, the mini bar in full screen, and which buttons are usable. */
 /** The card over the video while practice has it paused: it covers YouTube's own play button (see .pauseCard).
     When the video starts playing it stays a moment longer and fades, because YouTube flashes a pause symbol in the
     middle as it starts (that falls in the count-in, before the dance). Not on the Beats tab, where you pause to see the
@@ -927,6 +926,7 @@ function showPauseCard(){
   setShown(false);
 }
 
+/** The practice card, the mini bar in full screen, the card over the video, and which buttons are usable. */
 function updateSessionUI(){
   showPauseCard();
   if (!hasRange()) return;
@@ -962,7 +962,8 @@ function updateSessionUI(){
     progress = (s.index + s.rep / st.reps) / s.plan.length;
   }
   $('#sTitle').textContent = title; $('#sSub').textContent = sub; $('#sMain').textContent = main;
-  $('#pcHead').textContent = !s ? '' : s.done ? title : s.pausing ? 'Short break' : s.waiting ? title : 'Paused';
+  // the step, not "Paused": the card also shows for a moment while a run is starting, before the video plays
+  $('#pcHead').textContent = !s ? '' : s.pausing ? 'Short break' : title;
   $('#pcAct').textContent = '▶ ' + main;
   $('#sProg').style.width = Math.round(progress * 100) + '%';
   $('#sTip').hidden = !(tipsOn() && s && s.done);
