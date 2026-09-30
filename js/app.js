@@ -10,6 +10,7 @@
      log.js      the debug log
      pwa.js      installing to the home screen and working offline
      site.js     visit counts and the tip link
+     wakelock.js keeping the screen on while a video is open
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -25,13 +26,14 @@ import * as grid from './grid.js';
 import {buildPlan, enabledSteps, groupSize, topEvery, ladderWords, stepLabel, countInNumber, resumeIndex} from './plan.js';
 import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
+import {keepScreenOn} from './wakelock.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-c';
+const APP_VERSION = '2026-09-30-d';
 
 /* ---------- state ---------- */
 
@@ -60,6 +62,9 @@ let lastFit = null;                 // fitBeats() of the taps
 
 // practice (see "practice session")
 let session = null;
+
+// the screen stays on while a video is open (see wakelock.js)
+const screenOn = keepScreenOn(log);
 
 // sound
 let userMuted = !!settings.muted;   // you pressed mute
@@ -129,7 +134,7 @@ function debugReport(){
       ', flash ' + (settings.flash ? 'on' : 'off') + ', click ' + (settings.click ? 'on' : 'off'));
     lines.push('video: length ' + (duration || '?') + ' s, ' + (playerReady ? (playing ? 'playing' : 'not playing') : 'player not ready') +
       ', speed ' + rate + 'x, sound ' + (soundOff ? 'off' : 'on') + ', ad ' + (adPlaying ? 'playing' : adUnlocked ? 'unlocked by hand' : 'no'));
-    lines.push('full screen: ' + (fsOn ? (fsFallback ? 'on (fallback layout)' : 'on (browser)') : 'off'));
+    lines.push('full screen: ' + (fsOn ? (fsFallback ? 'on (fallback layout)' : 'on (browser)') : 'off') + ', screen kept on: ' + screenOn.status());
     if (hasRange()) lines.push('range: ' + fmtTimePrecise(cover.rangeStart) + ' to ' + fmtTimePrecise(cover.rangeEnd) + ', ' + rangeCounts() + ' counts, ' + blocks().length + ' blocks');
     lines.push('practice: ' + (!session ? 'not running' : session.done ? 'complete'
       : 'step ' + (session.index + 1) + ' of ' + session.plan.length + ', rep ' + (session.rep + 1) +
@@ -1026,6 +1031,7 @@ function showView(view){
   $('#viewHome').hidden = view !== 'home'; $('#viewPlayer').hidden = view !== 'player';
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
+  screenOn.want(view === 'player');
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();

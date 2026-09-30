@@ -7,10 +7,10 @@
    Other sites (YouTube) are left alone. Other projects can live on the same web address, so only caches named
    "run-it-back-..." are ever touched. When the list of files changes, change CACHE so old copies are cleared. */
 
-const CACHE = 'run-it-back-v4';
+const CACHE = 'run-it-back-v5';
 const FILES = [
   './', 'index.html', 'privacy.html', 'styles.css', 'manifest.webmanifest',
-  'js/app.js', 'js/beats.js', 'js/grid.js', 'js/log.js', 'js/plan.js', 'js/practice.js', 'js/pwa.js', 'js/share.js', 'js/site.js', 'js/storage.js', 'js/util.js',
+  'js/app.js', 'js/beats.js', 'js/grid.js', 'js/log.js', 'js/plan.js', 'js/practice.js', 'js/pwa.js', 'js/share.js', 'js/site.js', 'js/storage.js', 'js/util.js', 'js/wakelock.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 

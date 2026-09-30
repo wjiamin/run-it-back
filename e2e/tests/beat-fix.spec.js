@@ -11,6 +11,7 @@ async function practisingBlock3(page){
   await expect(page.locator('#sMain')).toHaveText('Continue from block 3');
   await page.click('#sMain');
   await expect(page.locator('#sTitle')).toHaveText('Block 3 of 7');
+  await expect(page.locator('#playBtn')).toHaveText('❚❚');   // the run is really playing (its seek and play have landed)
   await page.click('#tabBeats');
 }
 const backToPractice = async page => { await page.click('#tabPractice'); return page.locator('#sMain'); };
