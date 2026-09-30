@@ -39,7 +39,15 @@ test('parseYouTubeId reads every link style', () => {
     'https://www.youtube.com/embed/' + id, id]) eq(parseYouTubeId(link), id, link);
   eq(parseYouTubeId('not a link'), null);
 });
-test('time formatting', () => { eq(fmtTime(83.4), '1:23'); eq(fmtTimePrecise(83.4), '1:23.4'); eq(fmtTimePrecise(5.05), '0:05.0'); });
+test('time formatting', () => { eq(fmtTime(83.4), '1:23'); eq(fmtTimePrecise(83.4), '1:23.4'); eq(fmtTimePrecise(5.04), '0:05.0'); });
+test('time formatting never shows 60 seconds', () => { eq(fmtTimePrecise(59.96), '1:00.0'); eq(fmtTimePrecise(119.97), '2:00.0'); eq(fmtTimePrecise(0.04), '0:00.0'); });
+test('parseYouTubeId: links without https://, with other text around them, and broken ids', () => {
+  const id = 'dQw4w9WgXcQ';
+  for (const link of ['youtu.be/' + id, 'www.youtube.com/watch?v=' + id, 'm.youtube.com/watch?v=' + id + '&t=10', 'youtube.com/shorts/' + id,
+    'Check this out! https://youtu.be/' + id + '?si=x', 'https://music.youtube.com/watch?v=' + id + '&list=abc']) eq(parseYouTubeId(link), id, link);
+  for (const bad of ['https://www.youtube.com/watch?v=abc', 'https://youtu.be/', 'https://example.com/watch?v=' + id, 'youtube.com'])
+    eq(parseYouTubeId(bad), null, bad);
+});
 
 /* ---- beats ---- */
 test('fitBeats: 16 slightly uneven taps at 128 BPM', () => {

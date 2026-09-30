@@ -21,24 +21,29 @@ export function fmtTime(seconds){
 
 /** 83.4 → "1:23.4" */
 export function fmtTimePrecise(seconds){
-  const t = Math.max(0, seconds), m = Math.floor(t / 60), s = t - m * 60;
+  // round to tenths first, so 59.96 is "1:00.0", not "0:60.0"
+  const t = Math.round(Math.max(0, seconds) * 10) / 10, m = Math.floor(t / 60), s = t - m * 60;
   return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
 }
 
 /** 0.75 → "0.75×" */
 export const rateLabel = rate => rate + '×';
 
-/** Pull the 11-character video id out of any YouTube link (watch, youtu.be, shorts, embed, live) or a bare id. */
+const VIDEO_ID = /^[\w-]{11}$/;
+/**
+ * Pull the 11-character video id out of any YouTube link (watch, youtu.be, shorts, embed, live) or a bare id.
+ * The link can be missing its "https://" ("youtu.be/…", "www.youtube.com/watch?v=…") or come with other text around it,
+ * as some apps share it ("Check this out! https://youtu.be/…"). Anything that isn't a real 11-character id is refused.
+ */
 export function parseYouTubeId(text){
   const s = (text || '').trim();
-  if (/^[\w-]{11}$/.test(s)) return s;
+  if (VIDEO_ID.test(s)) return s;
+  const found = s.match(/(?:https?:\/\/)?(?:[\w-]+\.)*(?:youtube\.com|youtu\.be)\/\S*/i);
+  if (!found) return null;
   try {
-    const url = new URL(s);
-    if (url.hostname.includes('youtu.be')) return url.pathname.slice(1, 12) || null;
-    const v = url.searchParams.get('v');
-    if (v) return v.slice(0, 11);
-    const m = url.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{11})/);
-    if (m) return m[1];
-  } catch {}
-  return null;
+    const url = new URL(/^https?:/i.test(found[0]) ? found[0] : 'https://' + found[0]);
+    const id = url.hostname.endsWith('youtu.be') ? url.pathname.slice(1, 12)
+      : url.searchParams.get('v') || (url.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{11})/) || [])[1] || '';
+    return VIDEO_ID.test(id) ? id : null;
+  } catch { return null; }
 }
