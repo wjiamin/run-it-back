@@ -8,7 +8,7 @@ import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
-import {pickMimeType, takeTimeAt, stretchTimeline} from './recorder.js';
+import {pickMimeType, takeTimeAt, pieceUntil} from './recorder.js';
 import {NO_ZOOM, clampZoom, zoomAround, panBy, zoomTransform, MAX_ZOOM} from './zoom.js';
 
 const results = [];
@@ -410,17 +410,10 @@ test('watching back: the recording is where the video was at that moment, at any
   eq(takeTimeAt(take, 21), 2.4, 'one second of video at half speed took two seconds');
   eq(takeTimeAt({...take, rate: 1}, 23), 3.4);
 });
-test('recording any time: each stretch the video played is noted, with where it was in the recording', () => {
-  const tl = stretchTimeline();
-  tl.stopped(1);                        // stopped before anything played: nothing
-  tl.playing(10, 1, 2); tl.playing(10.5, 1, 2.5);   // only the first "playing" of a stretch counts
-  tl.stopped(5);                        // paused after 3 s
-  tl.playing(40, 0.5, 8); tl.stopped(12);           // jumped to 0:40 and played 4 s at half speed
-  tl.playing(50, 1, 13); tl.stopped(13.1);          // a blip: left out
-  eq(tl.stretches.length, 2);
-  eq(tl.stretches[0], {videoStart: 10, recordingStart: 2, rate: 1, videoEnd: 13});
-  eq(tl.stretches[1], {videoStart: 40, recordingStart: 8, rate: 0.5, videoEnd: 42}, '4 s at half speed is 2 s of video');
-  eq(takeTimeAt(tl.stretches[1], 41), 10);
+test('recording: the piece of video recorded ends where the recording stopped, at the speed it played', () => {
+  eq(pieceUntil({videoStart: 10, recordingStart: 2, rate: 1}, 5), {videoStart: 10, recordingStart: 2, rate: 1, videoEnd: 13});
+  eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 0.5}, 12).videoEnd, 42, '4 s at half speed is 2 s of video');
+  eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 1}, 8.1), null, 'too short to keep');
 });
 
 /* ---- zooming in ---- */

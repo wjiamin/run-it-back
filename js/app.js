@@ -262,7 +262,7 @@ function onPlayerState(e){
   if (e.data === STATE.CUED) readVideoInfo(true);
   if (reviewing) followWithTake();
   if (e.data === STATE.PLAYING) recSettleUntil = Math.max(recSettleUntil, performance.now() + 250);
-  else rec.stopped();   // paused, buffering or ended: the stretch being recorded ends here
+  else rec.stopped();   // paused, buffering or ended: the recording ends here
   if (e.data === STATE.PLAYING){ reloading = false; showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
   if (e.data === STATE.ENDED && sessionRunning()) session.segmentEnd();   // the part ran to the very end of the video
   clockRaw = -1;
@@ -290,7 +290,7 @@ function seek(t){
   if (!playerReady) return;
   const wasPlaying = playing;
   clockRaw = -1; nextClickBeat = -1;
-  rec.stopped(); recSettleUntil = performance.now() + JUMP_SETTLE_MS;   // a jump ends the stretch being recorded
+  rec.stopped(); recSettleUntil = performance.now() + JUMP_SETTLE_MS;   // a jump ends the recording
   if (lastPlayerState === 'ended' && sessionRunning() && player.loadVideoById){
     // once the video has ended, YouTube doesn't reliably seek back and play (practice sat stuck at the end), and playing
     // it restarts from 0:00. Loading it again from the right place always plays. The speed is set again when it plays.
@@ -1345,18 +1345,17 @@ function wireMe(){
 }
 
 /* ---------- recording yourself and watching it back (see recorder.js) ----------
-   With 📷 Me on, ⏺ on the camera window records you any time, until ■ (or 10 minutes). Practice runs are also recorded
-   by themselves, unless ⏺ is already recording. "▶ Watch back" shows the latest recording next to the video: the video
-   on the left half of the picture, your recording on the right, in step. It replays each stretch the video played
-   while you were recording, in order, at the speed it played. The recording follows the video: it plays and pauses with
-   it, and is put back in step whenever it drifts. */
+   With 📷 Me on, ⏺ on the camera window records you over one piece of the video, played straight through: it plays the
+   video if it was paused, and ends at ■ or when the video pauses, jumps or changes speed (or after 10 minutes). Each
+   practice run is also recorded by itself. "▶ Watch back" shows the latest recording next to the video: the video on
+   the left half of the picture, from the same place at the same speed, your recording on the right, in step. The
+   recording follows the video: it plays and pauses with it, and is put back in step whenever it drifts. */
 
 const rec = runRecorder(log, syncRec);
 const JUMP_SETTLE_MS = 700;           // after a jump the player reports its old position for a moment (practice.js SETTLE_MS)
 const MAX_RECORDING_S = 10 * 60;      // ⏺ stops by itself after this: recordings are kept in memory
 let recSettleUntil = 0;               // don't note the video as playing before this (it just jumped or started)
 let reviewing = false;
-let reviewIndex = 0;                  // the stretch being watched back
 let reviewSettleUntil = 0;
 
 /** The camera window's buttons and badge, and the Watch back buttons. */
@@ -1372,7 +1371,7 @@ function syncRec(){
 }
 
 function recordRun(run){
-  if (rec.manual) return;   // ⏺ is recording already: it goes on through the run
+  if (rec.manual) return;   // ⏺ is recording already: it records this run
   if (!me.on || reviewing) return rec.discard();
   rec.start(me.stream, {label: stepLabel(run.step) + ' at ' + rateLabel(run.step.rate)});
 }
@@ -1381,17 +1380,19 @@ function toggleRecord(){
   if (!me.on || reviewing) return;
   rec.discard();   // a practice run being recorded: ⏺ takes over
   $('#meNote').hidden = true;
-  if (rec.start(me.stream, {label: '', manual: true})) countEvent('record');
+  if (!rec.start(me.stream, {label: '', manual: true})) return;
+  countEvent('record');
+  if (!playing && !sessionRunning()) play();   // in practice, it records when the run plays
 }
 async function stopRecording(why){
   const before = rec.take;
   if (why) log('camera', 'recording stopped: ' + why);
   const take = await rec.finish();
   const note = why === 'time' ? 'Recordings stop after 10 minutes. Press ⏺ to record again.'
-    : take === before ? 'Nothing was recorded to watch back: play the video while recording.' : '';
+    : take === before ? 'Nothing was recorded to watch back: the video has to play while recording.' : '';
   $('#meNote').textContent = note; $('#meNote').hidden = !note;
 }
-/** Every frame: note the stretches the video plays while recording, and stop a long recording. */
+/** Every frame: note where the recorded piece of video starts, and stop a long recording. */
 function followRecording(t){
   if (!rec.recording) return;
   if (playing && !adPlaying && !reviewing && performance.now() > recSettleUntil) rec.playing(t, rate);
@@ -1406,41 +1407,35 @@ async function watchBack(){
   reviewing = true;
   $('#stage').classList.add('review');
   $('#takeVideo').src = take.url; $('#takeVideo').hidden = false;
-  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = take.label ? 'You: ' + take.label : 'You';
+  const label = take.label || fmtTime(take.videoStart) + '–' + fmtTime(take.videoEnd);
+  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = 'You: ' + label;
   syncRec(); layoutVideo();
   log('camera', 'watching back ' + (take.label || 'your recording'));
   countEvent('watch-back');
-  playStretch(0);
+  replayReview();
 }
-const replayReview = () => playStretch(0);
-/** Play stretch i of the recording: the video from where it was then, at its speed, and the recording from there. */
-function playStretch(i){
-  const take = rec.take, s = take && take.stretches[i];
-  if (!s) return closeReview();
-  reviewIndex = i;
+/** Play the recorded piece again: the video from where it started, at its speed, and the recording from there. */
+function replayReview(){
+  const take = rec.take;
+  if (!take) return closeReview();
   const v = $('#takeVideo');
-  v.pause(); v.currentTime = s.recordingStart;
+  v.pause(); v.currentTime = take.recordingStart;
   reviewSettleUntil = performance.now() + JUMP_SETTLE_MS;
-  setRate(s.rate); seek(s.videoStart); play();
+  setRate(take.rate); seek(take.videoStart); play();
 }
-const reviewStretch = () => rec.take && rec.take.stretches[reviewIndex];
 /** The video started or stopped: the recording does the same, from the matching moment. */
 function followWithTake(){
-  const v = $('#takeVideo'), s = reviewStretch();
-  if (!s) return;
-  if (playing){ v.currentTime = Math.max(0, takeTimeAt(s, currentTime())); v.play().catch(() => {}); }
+  const v = $('#takeVideo'), take = rec.take;
+  if (!take) return;
+  if (playing){ v.currentTime = Math.max(0, takeTimeAt(take, currentTime())); v.play().catch(() => {}); }
   else v.pause();
 }
-/** Every frame while watching back: go on to the next stretch at the end of one, and keep the recording in step. */
+/** Every frame while watching back: stop at the end of the piece, and keep the recording in step. */
 function followReview(t){
-  const v = $('#takeVideo'), s = reviewStretch();
-  if (!s || !playing || performance.now() < reviewSettleUntil) return;
-  if (t >= s.videoEnd){
-    if (reviewIndex + 1 < rec.take.stretches.length) playStretch(reviewIndex + 1);
-    else { pause(); v.pause(); }
-    return;
-  }
-  const want = takeTimeAt(s, t);
+  const v = $('#takeVideo'), take = rec.take;
+  if (!take || !playing || performance.now() < reviewSettleUntil) return;
+  if (t >= take.videoEnd){ pause(); v.pause(); return; }
+  const want = takeTimeAt(take, t);
   if (Math.abs(v.currentTime - want) > 0.25) v.currentTime = Math.max(0, want);
 }
 function closeReview(){

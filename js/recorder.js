@@ -1,22 +1,21 @@
 /* Recording yourself from the camera (📷 Me), to watch back side by side with the video.
 
-   A recording is made in one of two ways: ⏺ on the camera window (any time, until ■), or automatically for each
-   practice run. Only the latest recording is kept, in memory: it is never saved on the phone or sent anywhere, and it
-   is gone when a new one is made or the video is closed.
-
-   Keeping the two in step: while recording, the video may play, pause, jump and change speed. The recording notes
-   each stretch the video played continuously: where it started in the video, where that was in the recording, how
-   long it lasted and at what speed. Watching back replays the stretches in order, each from its own starting point.
+   A recording is one piece of the video, played straight through: it has a clear start and end, so watching it back is
+   easy to follow. It is made in one of two ways: ⏺ on the camera window, or automatically for each practice run. It
+   starts when the video plays, and ends at ■ or as soon as the video stops playing straight on (a pause, a jump, a
+   speed change, an ad). Only the latest recording is kept, in memory: it is never saved on the phone or sent anywhere,
+   and it is gone when a new one is made or the video is closed.
 
    Usage:
-     const rec = runRecorder(log, onChange);           onChange(): the recording started, stopped or was thrown away
+     const rec = runRecorder(log, onChange);           onChange(): the recording started, ended or was thrown away
      rec.start(stream, {label, manual})                 start recording (manual: from ⏺, not a practice run)
-     rec.playing(t, rate)                               the video is playing at video time t: starts a stretch if none is
-                                                        open (call it any time while playing; it is only counted once)
-     rec.stopped()                                      the video paused, jumped or changed speed: the stretch ends
-     await rec.finish()                                 stop and keep it as the take (if the video played at all)
+     rec.playing(t, rate)                               the video is playing at video time t: the piece starts here if it
+                                                        hasn't yet (call it any time while playing; only the first counts)
+     await rec.stopped()                                the video paused, jumped or changed speed: the recording ends
+                                                        there, if its piece had started
+     await rec.finish()                                 stop now and keep it as the take (if the video played at all)
      rec.discard(), rec.clear()                         throw away the one being made / also forget the take
-     rec.take          {url, label ('' for ⏺), stretches: [{videoStart, videoEnd, recordingStart, rate}]} or null
+     rec.take          {url, label, videoStart, videoEnd, recordingStart, rate} or null  (label '' for ⏺)
      rec.recording, rec.manual, rec.seconds            being made? from ⏺? how long so far */
 
 /** The first recording format the browser can make: MP4 on iPhones, WebM elsewhere. */
@@ -26,33 +25,23 @@ export function pickMimeType(isSupported){
 
 export const canRecord = () => typeof MediaRecorder !== 'undefined';
 
-/** Where the recording is when the video is at time t, within a stretch (the recording runs in real time). */
-export const takeTimeAt = (stretch, t) => stretch.recordingStart + (t - stretch.videoStart) / stretch.rate;
+/** Where the recording is when the video is at time t (the recording runs in real time, the video at `rate`). */
+export const takeTimeAt = (take, t) => take.recordingStart + (t - take.videoStart) / take.rate;
 
-/** Stretches shorter than this (seconds of recording) are left out: a blip between a jump and a pause. */
-const MIN_STRETCH = 0.3;
+/** Pieces shorter than this (seconds of recording) aren't kept: nothing really played. */
+const MIN_PIECE = 0.3;
 
 /**
- * The stretches the video played while recording, from the times it was seen playing and stopping.
- * `seconds` is always how far into the recording it is. Kept apart from the recorder so it can be tested.
+ * The piece of video recorded, from where it started ({videoStart, recordingStart, rate}) and how far into the recording
+ * it ended (`seconds`); null when it is too short to keep.
  */
-export function stretchTimeline(){
-  const stretches = [];
-  let open = null;   // {videoStart, recordingStart, rate}
-  return {
-    playing(t, rate, seconds){ if (!open) open = {videoStart: t, recordingStart: seconds, rate}; },
-    stopped(seconds){
-      if (!open) return;
-      const length = seconds - open.recordingStart;
-      if (length >= MIN_STRETCH) stretches.push({...open, videoEnd: open.videoStart + length * open.rate});
-      open = null;
-    },
-    get stretches(){ return stretches; },
-  };
+export function pieceUntil(start, seconds){
+  const length = seconds - start.recordingStart;
+  return length >= MIN_PIECE ? {...start, videoEnd: start.videoStart + length * start.rate} : null;
 }
 
 export function runRecorder(log, onChange = () => {}){
-  let current = null;       // the recording being made: {recorder, chunks, stopped (a promise), details, timeline}
+  let current = null;       // the recording being made: {recorder, chunks, stopped (a promise), details, start}
   let startedAt = 0;        // performance.now() when it really began
   let take = null;
 
@@ -84,7 +73,7 @@ export function runRecorder(log, onChange = () => {}){
       const stopped = new Promise(resolve => recorder.addEventListener('stop', resolve, {once: true}));
       recorder.addEventListener('dataavailable', e => { if (e.data && e.data.size) chunks.push(e.data); });
       recorder.addEventListener('start', () => { if (current && current.recorder === recorder) startedAt = performance.now(); });
-      current = {recorder, chunks, stopped, details, timeline: stretchTimeline()};
+      current = {recorder, chunks, stopped, details, start: null};
       startedAt = 0;
       recorder.start();
       if (details.manual) log('camera', 'recording');
@@ -92,15 +81,14 @@ export function runRecorder(log, onChange = () => {}){
       return true;
     },
 
-    playing(t, rate){ if (current && startedAt) current.timeline.playing(t, rate, seconds()); },
-    stopped(){ if (current && startedAt) current.timeline.stopped(seconds()); },
+    playing(t, rate){ if (current && startedAt && !current.start) current.start = {videoStart: t, recordingStart: seconds(), rate}; },
+    stopped(){ return current && current.start ? rec.finish() : Promise.resolve(take); },
 
     async finish(){
       if (!current) return take;
-      if (startedAt) current.timeline.stopped(seconds());
-      const {recorder, chunks, stopped, details, timeline} = stopCurrent();
-      const stretches = timeline.stretches, label = details.label || 'your recording';
-      if (!stretches.length){
+      const piece = current.start && pieceUntil(current.start, seconds());
+      const {recorder, chunks, stopped, details} = stopCurrent();
+      if (!piece){
         if (details.manual) log('camera', 'recording stopped: the video didn\'t play, so there is nothing to compare');
         onChange();
         return take;
@@ -109,9 +97,9 @@ export function runRecorder(log, onChange = () => {}){
       const blob = new Blob(chunks, {type: recorder.mimeType || 'video/webm'});
       if (blob.size){
         if (take) URL.revokeObjectURL(take.url);
-        take = {url: URL.createObjectURL(blob), label: details.label || '', stretches};
-        log('camera', 'recorded ' + label + ': ' + stretches.length + ' stretch' + (stretches.length > 1 ? 'es' : '') +
-          ' (' + Math.round(blob.size / 1024) + ' KB)');
+        take = {url: URL.createObjectURL(blob), label: details.label || '', ...piece};
+        log('camera', 'recorded ' + (details.label || 'your recording') + ': ' + (piece.videoEnd - piece.videoStart).toFixed(1) +
+          ' s of video (' + Math.round(blob.size / 1024) + ' KB)');
       }
       onChange();
       return take;
