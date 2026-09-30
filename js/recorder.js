@@ -1,21 +1,23 @@
-/* Recording each practice run from the camera (📷 Me), to watch back side by side with the video.
+/* Recording yourself from the camera (📷 Me), to watch back side by side with the video.
 
-   Only the latest take is kept, in memory: it is never saved on the phone or sent anywhere, and it is gone when a new
-   run is recorded or the video is closed.
+   A recording is made in one of two ways: ⏺ on the camera window (any time, until ■), or automatically for each
+   practice run. Only the latest recording is kept, in memory: it is never saved on the phone or sent anywhere, and it
+   is gone when a new one is made or the video is closed.
 
-   Keeping the two in step: recording starts a moment before the video really plays (the player takes a little while
-   to seek and start). When the video reports it is playing, markPlaying(t) notes the video time t and how far into
-   the recording that was; watching back starts the video at t and the recording at that point.
+   Keeping the two in step: while recording, the video may play, pause, jump and change speed. The recording notes
+   each stretch the video played continuously: where it started in the video, where that was in the recording, how
+   long it lasted and at what speed. Watching back replays the stretches in order, each from its own starting point.
 
    Usage:
-     const rec = runRecorder(log);
-     rec.start(stream, {label, rate, end})   a run starts (end: the video time where it stops)
-     rec.markPlaying(t)                       the video is playing, at video time t (the first call of a run counts;
-                                              any moment works, as long as it is while both are running)
-     await rec.finish()                       the run played to the end: keep it as the take
-     rec.discard()                            the run was cut short: throw it away
-     rec.take                                 {url, label, rate, videoStart, recordingStart, end} or null
-     rec.clear()                              forget the take (closing the video) */
+     const rec = runRecorder(log, onChange);           onChange(): the recording started, stopped or was thrown away
+     rec.start(stream, {label, manual})                 start recording (manual: from ⏺, not a practice run)
+     rec.playing(t, rate)                               the video is playing at video time t: starts a stretch if none is
+                                                        open (call it any time while playing; it is only counted once)
+     rec.stopped()                                      the video paused, jumped or changed speed: the stretch ends
+     await rec.finish()                                 stop and keep it as the take (if the video played at all)
+     rec.discard(), rec.clear()                         throw away the one being made / also forget the take
+     rec.take          {url, label ('' for ⏺), stretches: [{videoStart, videoEnd, recordingStart, rate}]} or null
+     rec.recording, rec.manual, rec.seconds            being made? from ⏺? how long so far */
 
 /** The first recording format the browser can make: MP4 on iPhones, WebM elsewhere. */
 export function pickMimeType(isSupported){
@@ -24,67 +26,103 @@ export function pickMimeType(isSupported){
 
 export const canRecord = () => typeof MediaRecorder !== 'undefined';
 
-/** Where the recording is when the video is at time t: the video runs at the take's speed, the recording in real time. */
-export const takeTimeAt = (take, t) => take.recordingStart + (t - take.videoStart) / take.rate;
+/** Where the recording is when the video is at time t, within a stretch (the recording runs in real time). */
+export const takeTimeAt = (stretch, t) => stretch.recordingStart + (t - stretch.videoStart) / stretch.rate;
 
-export function runRecorder(log){
-  let recorder = null;      // the MediaRecorder of the run being recorded
-  let chunks = [];
-  let startedAt = 0;        // performance.now() when recording really began
-  let meta = null;          // {label, rate, end, videoStart, recordingStart} of the run being recorded
+/** Stretches shorter than this (seconds of recording) are left out: a blip between a jump and a pause. */
+const MIN_STRETCH = 0.3;
+
+/**
+ * The stretches the video played while recording, from the times it was seen playing and stopping.
+ * `seconds` is always how far into the recording it is. Kept apart from the recorder so it can be tested.
+ */
+export function stretchTimeline(){
+  const stretches = [];
+  let open = null;   // {videoStart, recordingStart, rate}
+  return {
+    playing(t, rate, seconds){ if (!open) open = {videoStart: t, recordingStart: seconds, rate}; },
+    stopped(seconds){
+      if (!open) return;
+      const length = seconds - open.recordingStart;
+      if (length >= MIN_STRETCH) stretches.push({...open, videoEnd: open.videoStart + length * open.rate});
+      open = null;
+    },
+    get stretches(){ return stretches; },
+  };
+}
+
+export function runRecorder(log, onChange = () => {}){
+  let current = null;       // the recording being made: {recorder, chunks, stopped (a promise), details, timeline}
+  let startedAt = 0;        // performance.now() when it really began
   let take = null;
 
-  function stopRecorder(){
-    const r = recorder;
-    recorder = null;
-    if (r && r.state !== 'inactive') r.stop();
-    return r;
+  const seconds = () => startedAt ? (performance.now() - startedAt) / 1000 : 0;
+  /** Stop the recording being made (if any) and forget it; returns it. */
+  function stopCurrent(){
+    const c = current;
+    current = null;
+    if (c && c.recorder.state !== 'inactive') c.recorder.stop();
+    return c;
   }
 
-  return {
+  const rec = {
     get take(){ return take; },
-    get recording(){ return !!recorder; },
+    get recording(){ return !!current; },
+    get manual(){ return !!current && !!current.details.manual; },
+    get seconds(){ return current ? seconds() : 0; },
 
-    start(stream, info){
-      stopRecorder();
-      if (!canRecord() || !stream) return;
-      chunks = []; meta = {...info, videoStart: null, recordingStart: 0}; startedAt = 0;
+    start(stream, details){
+      stopCurrent();
+      if (!canRecord() || !stream) return false;
+      let recorder;
       try {
         const mimeType = pickMimeType(t => MediaRecorder.isTypeSupported(t));
         recorder = new MediaRecorder(stream, mimeType ? {mimeType} : undefined);
-      } catch (e){ log('camera', 'cannot record: ' + e.name); recorder = null; return; }
+      } catch (e){ log('camera', 'cannot record: ' + e.name); onChange(); return false; }
+      // each recording keeps its own pieces, so a late piece of an old one never lands in a new one
+      const chunks = [];
+      const stopped = new Promise(resolve => recorder.addEventListener('stop', resolve, {once: true}));
       recorder.addEventListener('dataavailable', e => { if (e.data && e.data.size) chunks.push(e.data); });
-      recorder.addEventListener('start', () => { startedAt = performance.now(); });
+      recorder.addEventListener('start', () => { if (current && current.recorder === recorder) startedAt = performance.now(); });
+      current = {recorder, chunks, stopped, details, timeline: stretchTimeline()};
+      startedAt = 0;
       recorder.start();
+      if (details.manual) log('camera', 'recording');
+      onChange();
+      return true;
     },
 
-    markPlaying(t){
-      if (!recorder || !meta || meta.videoStart != null) return;
-      meta.videoStart = t;
-      meta.recordingStart = startedAt ? (performance.now() - startedAt) / 1000 : 0;
+    playing(t, rate){ if (current && startedAt) current.timeline.playing(t, rate, seconds()); },
+    stopped(){ if (current && startedAt) current.timeline.stopped(seconds()); },
+
+    async finish(){
+      if (!current) return take;
+      if (startedAt) current.timeline.stopped(seconds());
+      const {recorder, chunks, stopped, details, timeline} = stopCurrent();
+      const stretches = timeline.stretches, label = details.label || 'your recording';
+      if (!stretches.length){
+        if (details.manual) log('camera', 'recording stopped: the video didn\'t play, so there is nothing to compare');
+        onChange();
+        return take;
+      }
+      await stopped;   // (also when the camera was turned off and stopped it first)
+      const blob = new Blob(chunks, {type: recorder.mimeType || 'video/webm'});
+      if (blob.size){
+        if (take) URL.revokeObjectURL(take.url);
+        take = {url: URL.createObjectURL(blob), label: details.label || '', stretches};
+        log('camera', 'recorded ' + label + ': ' + stretches.length + ' stretch' + (stretches.length > 1 ? 'es' : '') +
+          ' (' + Math.round(blob.size / 1024) + ' KB)');
+      }
+      onChange();
+      return take;
     },
 
-    finish(){
-      const r = stopRecorder(), info = meta;
-      meta = null;
-      if (!r || !info || info.videoStart == null) return Promise.resolve(take);
-      return new Promise(resolve => {
-        r.addEventListener('stop', () => {
-          const blob = new Blob(chunks, {type: r.mimeType || 'video/webm'});
-          if (!blob.size){ resolve(take); return; }
-          if (take) URL.revokeObjectURL(take.url);
-          take = {url: URL.createObjectURL(blob), ...info};
-          log('camera', 'recorded ' + info.label + ' (' + Math.round(blob.size / 1024) + ' KB)');
-          resolve(take);
-        }, {once: true});
-      });
-    },
-
-    discard(){ stopRecorder(); meta = null; chunks = []; },
+    discard(){ if (stopCurrent()) onChange(); },
 
     clear(){
-      this.discard();
-      if (take){ URL.revokeObjectURL(take.url); take = null; }
+      rec.discard();
+      if (take){ URL.revokeObjectURL(take.url); take = null; onChange(); }
     },
   };
+  return rec;
 }

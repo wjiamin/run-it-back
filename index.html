@@ -165,6 +165,12 @@
           <div id="meBox" class="meBox br" hidden aria-label="You, from the front camera (drag to another corner)">
             <video id="meVideo" playsinline muted autoplay></video>
             <button id="meClose" class="meClose" aria-label="Turn the camera off">✕</button>
+            <span class="meRecBadge" aria-hidden="true">● REC</span>
+            <div class="meActs">
+              <button id="meWatch" class="meAct" aria-label="Watch back your recording" title="Watch back" hidden>▶</button>
+              <button id="meRec" class="meAct meRec" aria-pressed="false" aria-label="Record yourself"
+                title="Record yourself (any time, until ■). It stays on this phone and is gone when you close the video.">⏺</button>
+            </div>
           </div>
           <div class="fsCount" id="fsCount"><div class="fsStat" id="fsStat"></div></div>
           <div class="fsBar" id="fsBar"></div>

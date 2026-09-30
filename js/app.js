@@ -32,7 +32,7 @@ import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {keepScreenOn} from './wakelock.js';
 import {selfView, dragToCorners, CORNERS} from './camera.js';
-import {runRecorder, takeTimeAt} from './recorder.js';
+import {runRecorder, takeTimeAt, canRecord} from './recorder.js';
 import {NO_ZOOM, clampZoom, isZoomed, zoomAround, zoomTransform, zoomGestures} from './zoom.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
@@ -40,7 +40,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-g';
+const APP_VERSION = '2026-09-30-h';
 
 /* ---------- state ---------- */
 
@@ -261,7 +261,8 @@ function onPlayerState(e){
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
   if (e.data === STATE.CUED) readVideoInfo(true);
   if (reviewing) followWithTake();
-  if (e.data === STATE.PLAYING && rec.recording) rec.markPlaying(currentTime());
+  if (e.data === STATE.PLAYING) recSettleUntil = Math.max(recSettleUntil, performance.now() + 250);
+  else rec.stopped();   // paused, buffering or ended: the stretch being recorded ends here
   if (e.data === STATE.PLAYING){ reloading = false; showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
   if (e.data === STATE.ENDED && sessionRunning()) session.segmentEnd();   // the part ran to the very end of the video
   clockRaw = -1;
@@ -289,6 +290,7 @@ function seek(t){
   if (!playerReady) return;
   const wasPlaying = playing;
   clockRaw = -1; nextClickBeat = -1;
+  rec.stopped(); recSettleUntil = performance.now() + JUMP_SETTLE_MS;   // a jump ends the stretch being recorded
   if (lastPlayerState === 'ended' && sessionRunning() && player.loadVideoById){
     // once the video has ended, YouTube doesn't reliably seek back and play (practice sat stuck at the end), and playing
     // it restarts from 0:00. Loading it again from the right place always plays. The speed is set again when it plays.
@@ -303,7 +305,7 @@ function seek(t){
 function play(){ if (playerReady && !reloading) player.playVideo(); }   // a reload plays by itself
 function pause(){ if (playerReady) player.pauseVideo(); }
 function togglePlay(){ if (!playerReady) return; playing ? player.pauseVideo() : player.playVideo(); }
-function setRate(r){ rate = r; if (playerReady && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
+function setRate(r){ if (r !== rate) rec.stopped(); rate = r; if (playerReady && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
 function setMirror(on){
   settings.mirror = on; save(); syncControls();
   // keep the same dancer in view: mirroring moves them to the other side of the picture
@@ -431,7 +433,7 @@ const practiceEnv = {
   onStep: step => { setRate(step.rate); applySound(); rememberProgress(step); },
   onFinish: () => { applySound(); forgetProgress(); countEvent('practice-complete'); },
   onRunStart: run => recordRun(run),
-  onRunEnd: () => { if (rec.recording) rec.finish().then(syncWatch); },
+  onRunEnd: () => { if (rec.recording && !rec.manual) rec.finish(); },
   onChange: () => updateSessionUI(),
 };
 
@@ -471,7 +473,7 @@ function restartPart(){
 }
 
 function endSession(why){
-  rec.discard();   // a run being recorded was cut short
+  if (!rec.manual) rec.discard();   // a run being recorded was cut short
   if (!session) return;
   log('practice', 'stopped: ' + (why || 'the trim, plan or beat was changed'));
   session.stop(); session = null; applySound(); updateSessionUI();
@@ -559,8 +561,7 @@ function tick(){
   const countIn = countInNow(t);
   updateCountUI(t, countIn);
   scheduleClicks(t);
-  // note where the run really started playing, for watching it back (the player doesn't always say when it starts)
-  if (rec.recording && sessionRunning() && playing && performance.now() > session.ignoreUntil) rec.markPlaying(t);
+  followRecording(t);
   followSession(t);
   if (reviewing) followReview(t);
   showCue(countIn);
@@ -572,6 +573,7 @@ function watchForAds(){
   const reported = playerReady && playing && duration && player.getDuration ? player.getDuration() : 0;
   const wasAd = adPlaying;
   adPlaying = reported > 0 && Math.abs(reported - duration) > 1.5;
+  if (adPlaying && !wasAd) rec.stopped();
   if (adPlaying !== wasAd) log('ad', adPlaying ? 'ad detected (the player reports ' + reported.toFixed(0) + ' s, the video is ' + duration + ' s)' : 'ad ended');
   $('#stage').classList.toggle('ad', adPlaying || adUnlocked);
   const note = $('#adNote');
@@ -1058,7 +1060,7 @@ function showView(view){
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
   screenOn.want(view === 'player');
-  if (view === 'home'){ closeReview(); rec.clear(); syncWatch(); me.stop(); }
+  if (view === 'home'){ closeReview(); rec.clear(); me.stop(); }
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();
@@ -1320,7 +1322,7 @@ const me = selfView({box: $('#meBox'), video: $('#meVideo'), log, onChange: sync
 
 /** The 📷 Me button, and a note when the camera couldn't start. */
 function syncMe(){
-  if (!me.on) rec.discard();
+  if (!me.on && rec.recording){ if (rec.manual) stopRecording(); else rec.discard(); }   // keep what ⏺ recorded so far
   $('#meBtn').setAttribute('aria-pressed', me.on);
   const note = me.problem ? ME_PROBLEMS[me.problem] : '';
   $('#meNote').textContent = note; $('#meNote').hidden = !note;
@@ -1334,61 +1336,111 @@ function wireMe(){
   placeMe(settings.meCorner);
   $('#meBtn').addEventListener('click', toggleMe);
   $('#meClose').addEventListener('click', () => me.stop());
+  $('#meRec').addEventListener('click', toggleRecord);
+  $('#meWatch').addEventListener('click', watchBack);
   dragToCorners($('#meBox'), $('#stage'), corner => {
     settings.meCorner = corner; save(); placeMe(corner);
     log('camera', 'moved to the ' + corner + ' corner');
   });
 }
 
-/* ---------- watching a run back (see recorder.js) ----------
-   With 📷 Me on, each practice run is recorded. "▶ Watch back" shows the latest one next to the video: the video on the
-   left half of the picture at the speed you practised, your recording on the right, in step. The recording follows the
-   video: it plays and pauses with it, and is put back in step whenever it drifts. */
+/* ---------- recording yourself and watching it back (see recorder.js) ----------
+   With 📷 Me on, ⏺ on the camera window records you any time, until ■ (or 10 minutes). Practice runs are also recorded
+   by themselves, unless ⏺ is already recording. "▶ Watch back" shows the latest recording next to the video: the video
+   on the left half of the picture, your recording on the right, in step. It replays each stretch the video played
+   while you were recording, in order, at the speed it played. The recording follows the video: it plays and pauses with
+   it, and is put back in step whenever it drifts. */
 
-const rec = runRecorder(log);
+const rec = runRecorder(log, syncRec);
+const JUMP_SETTLE_MS = 700;           // after a jump the player reports its old position for a moment (practice.js SETTLE_MS)
+const MAX_RECORDING_S = 10 * 60;      // ⏺ stops by itself after this: recordings are kept in memory
+let recSettleUntil = 0;               // don't note the video as playing before this (it just jumped or started)
 let reviewing = false;
-let reviewSettleUntil = 0;   // after a jump the player reports its old position for a moment: ignore it until then
+let reviewIndex = 0;                  // the stretch being watched back
+let reviewSettleUntil = 0;
+
+/** The camera window's buttons and badge, and the Watch back buttons. */
+function syncRec(){
+  const manual = rec.manual;
+  $('#meBox').classList.toggle('recording', rec.recording);
+  $('#meRec').hidden = !canRecord();
+  $('#meRec').textContent = manual ? '■' : '⏺';
+  $('#meRec').setAttribute('aria-pressed', manual);
+  $('#meRec').setAttribute('aria-label', manual ? 'Stop recording' : 'Record yourself');
+  const canWatch = !!rec.take && !manual && !reviewing;
+  $('#meWatch').hidden = !canWatch; $('#sWatch').hidden = !canWatch;
+}
 
 function recordRun(run){
+  if (rec.manual) return;   // ⏺ is recording already: it goes on through the run
   if (!me.on || reviewing) return rec.discard();
-  rec.start(me.stream, {label: stepLabel(run.step) + ' at ' + rateLabel(run.step.rate), rate: run.step.rate, end: run.step.e});
+  rec.start(me.stream, {label: stepLabel(run.step) + ' at ' + rateLabel(run.step.rate)});
 }
-function syncWatch(){ $('#sWatch').hidden = !rec.take || reviewing; }
+function toggleRecord(){
+  if (rec.manual) return stopRecording();
+  if (!me.on || reviewing) return;
+  rec.discard();   // a practice run being recorded: ⏺ takes over
+  $('#meNote').hidden = true;
+  if (rec.start(me.stream, {label: '', manual: true})) countEvent('record');
+}
+async function stopRecording(why){
+  const before = rec.take;
+  if (why) log('camera', 'recording stopped: ' + why);
+  const take = await rec.finish();
+  const note = why === 'time' ? 'Recordings stop after 10 minutes. Press ⏺ to record again.'
+    : take === before ? 'Nothing was recorded to watch back: play the video while recording.' : '';
+  $('#meNote').textContent = note; $('#meNote').hidden = !note;
+}
+/** Every frame: note the stretches the video plays while recording, and stop a long recording. */
+function followRecording(t){
+  if (!rec.recording) return;
+  if (playing && !adPlaying && !reviewing && performance.now() > recSettleUntil) rec.playing(t, rate);
+  if (rec.manual && rec.seconds > MAX_RECORDING_S) stopRecording('time');
+}
 
-function watchBack(){
+async function watchBack(){
+  if (rec.manual) await stopRecording();
   const take = rec.take;
-  if (!take || !playerReady) return;
+  if (!take || !playerReady || reviewing) return;
   endSession('watching a run back');
   reviewing = true;
   $('#stage').classList.add('review');
   $('#takeVideo').src = take.url; $('#takeVideo').hidden = false;
-  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = 'You: ' + take.label;
-  syncWatch(); layoutVideo();
-  log('camera', 'watching back ' + take.label);
+  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = take.label ? 'You: ' + take.label : 'You';
+  syncRec(); layoutVideo();
+  log('camera', 'watching back ' + (take.label || 'your recording'));
   countEvent('watch-back');
-  replayReview();
+  playStretch(0);
 }
-function replayReview(){
-  const take = rec.take;
-  if (!take) return closeReview();
-  $('#takeVideo').pause(); $('#takeVideo').currentTime = take.recordingStart;
-  reviewSettleUntil = performance.now() + REVIEW_SETTLE_MS;
-  setRate(take.rate); seek(take.videoStart); play();
+const replayReview = () => playStretch(0);
+/** Play stretch i of the recording: the video from where it was then, at its speed, and the recording from there. */
+function playStretch(i){
+  const take = rec.take, s = take && take.stretches[i];
+  if (!s) return closeReview();
+  reviewIndex = i;
+  const v = $('#takeVideo');
+  v.pause(); v.currentTime = s.recordingStart;
+  reviewSettleUntil = performance.now() + JUMP_SETTLE_MS;
+  setRate(s.rate); seek(s.videoStart); play();
 }
+const reviewStretch = () => rec.take && rec.take.stretches[reviewIndex];
 /** The video started or stopped: the recording does the same, from the matching moment. */
 function followWithTake(){
-  const v = $('#takeVideo'), take = rec.take;
-  if (!take) return;
-  if (playing){ v.currentTime = Math.max(0, takeTimeAt(take, currentTime())); v.play().catch(() => {}); }
+  const v = $('#takeVideo'), s = reviewStretch();
+  if (!s) return;
+  if (playing){ v.currentTime = Math.max(0, takeTimeAt(s, currentTime())); v.play().catch(() => {}); }
   else v.pause();
 }
-/** Every frame while watching back: stop at the end of the run, and keep the recording in step. */
-const REVIEW_SETTLE_MS = 700;   // as long as practice.js waits after a jump (SETTLE_MS)
+/** Every frame while watching back: go on to the next stretch at the end of one, and keep the recording in step. */
 function followReview(t){
-  const v = $('#takeVideo'), take = rec.take;
-  if (!take || !playing || performance.now() < reviewSettleUntil) return;
-  if (t >= take.end){ pause(); v.pause(); return; }
-  const want = takeTimeAt(take, t);
+  const v = $('#takeVideo'), s = reviewStretch();
+  if (!s || !playing || performance.now() < reviewSettleUntil) return;
+  if (t >= s.videoEnd){
+    if (reviewIndex + 1 < rec.take.stretches.length) playStretch(reviewIndex + 1);
+    else { pause(); v.pause(); }
+    return;
+  }
+  const want = takeTimeAt(s, t);
   if (Math.abs(v.currentTime - want) > 0.25) v.currentTime = Math.max(0, want);
 }
 function closeReview(){
@@ -1397,9 +1449,10 @@ function closeReview(){
   const v = $('#takeVideo');
   v.pause(); v.removeAttribute('src'); v.load(); v.hidden = true;
   $('#stage').classList.remove('review'); $('#reviewBar').hidden = true;
-  pause(); layoutVideo(); syncWatch(); updateSessionUI();
+  pause(); layoutVideo(); syncRec(); updateSessionUI();
 }
 function wireReview(){
+  syncRec();
   $('#sWatch').addEventListener('click', watchBack);
   $('#reviewReplay').addEventListener('click', replayReview);
   $('#reviewClose').addEventListener('click', closeReview);
@@ -1549,4 +1602,4 @@ requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
 
 // for testing from the browser console
-window.__app = {getPlayer: () => player, getTake: () => rec.take};
+window.__app = {getPlayer: () => player, getTake: () => rec.take, recording: () => rec.recording};
