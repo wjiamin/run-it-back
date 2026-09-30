@@ -201,6 +201,13 @@ body.fsmode .vcol{z-index:150}
 .fsStat{font-size:11px;opacity:.9;line-height:1.2}
 .stage.fs.ad .fsBar{top:0;bottom:auto;padding:8px calc(12px + env(safe-area-inset-right)) 14px calc(12px + env(safe-area-inset-left));background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,0))}
 /* a clear layer over the video: tapping the picture (including YouTube's own big play button) plays or pauses */
+/* while practice has the video paused (a break, waiting for you, done, or paused), this card covers the middle of the
+   picture, where YouTube draws its big play button; tapping it does what the main practice button does */
+.pauseCard{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);min-width:min(240px,70%);min-height:96px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 22px;border:0;border-radius:18px;
+  background:#0e1015;color:#fff;box-shadow:0 6px 30px rgba(0,0,0,.45);text-align:center}   /* solid: nothing shows through */
+.pauseCard .pcHead{font-size:13px;font-weight:600;opacity:.8;letter-spacing:.02em}
+.pauseCard .pcAct{font-size:18px;font-weight:800;color:#ff5c9a}
 .shield{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .stage.ad .shield{display:none}
 .stage.ad #playerWrap{pointer-events:auto;transform:none}
