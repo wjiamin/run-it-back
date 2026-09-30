@@ -14,7 +14,10 @@ test('the card covers YouTube\'s play button in the break between runs, and tapp
   await expect(page.locator('#pauseCard')).toBeHidden();
   await page.click('#sMain');
   await expect(page.locator('#playBtn')).toHaveText('❚❚');
-  await expect(page.locator('#pauseCard'), 'hidden while playing').toBeHidden();
+  // as it starts playing, the card stays a moment (YouTube flashes its pause symbol then), fading, and lets taps through
+  await expect(page.locator('#pauseCard')).toHaveClass(/fading/);
+  expect(await page.locator('#pauseCard').evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
+  await expect(page.locator('#pauseCard'), 'then gone while playing').toBeHidden({timeout: 2000});
   // the first run ends: a 2 s break, the video paused
   await expect(page.locator('#pauseCard')).toBeVisible({timeout: 25_000});
   await expect(page.locator('#pcHead')).toHaveText('Short break');
