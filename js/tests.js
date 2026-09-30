@@ -8,6 +8,7 @@ import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
+import {pickMimeType, takeTimeAt} from './recorder.js';
 
 const results = [];
 function test(name, fn){
@@ -218,6 +219,8 @@ function fakeSession(plan, settings = {}){
     period: () => 0.5,
     seek: t => events.push('seek ' + t), play: () => {}, pause: () => {},
     onStep: st => events.push('step ' + st.part + '@' + st.rate), onFinish: () => events.push('finish'), onChange: () => {},
+    onRunStart: run => events.push('run ' + run.step.part + '@' + run.step.rate + ' #' + (run.rep + 1)),
+    onRunEnd: run => events.push('end ' + run.step.part + '@' + run.step.rate + ' #' + (run.rep + 1)),
     log: () => {}, now: () => 0,
     setTimer: (fn, ms) => timers.push(fn), clearTimer: () => {},
   };
@@ -230,6 +233,13 @@ function fakeSession(plan, settings = {}){
 const repsPlan = () => buildPlan(planSettings({connectOn: false, fullAfter: false, blockSteps: [{rate: 0.5, on: true, reps: 2}, {rate: 1, on: true, reps: 2}]}),
   blocks5.slice(0, 2), {s: 4, e: 12}, 'all');   // b1@0.5 ×2, b1@1 ×2, b2@0.5 ×2, b2@1 ×2
 
+test('practice: tells when each run starts and when it plays to the end (for recording)', () => {
+  const f = fakeSession(repsPlan());
+  f.s.start(); f.finishRun(); f.endPause();
+  f.s.again();                  // cut short: no end, a new start
+  f.finishRun();
+  eq(f.events.filter(e => /^(run|end)/.test(e)), ['run b1@0.5 #1', 'end b1@0.5 #1', 'run b1@0.5 #2', 'run b1@0.5 #2', 'end b1@0.5 #2']);
+});
 test('practice: runs, pauses and steps in order', () => {
   const f = fakeSession(repsPlan());
   f.s.start();
@@ -264,7 +274,7 @@ test('Again after a step ends goes back to that step, at its speed', () => {
   const f = fakeSession(repsPlan());
   f.s.start(); f.finishRun(); f.endPause(); f.finishRun();      // b1@0.5 finished, pausing before b1@1
   f.s.again(); eq(f.where(), 'b1@0.5 rep 2');
-  eq(f.events.slice(-2)[0], 'step b1@0.5', 'the speed is set again');
+  eq(f.events.filter(e => e.startsWith('step ')).pop(), 'step b1@0.5', 'the speed is set again');
 });
 test('Again after the end replays the last run', () => {
   const f = fakeSession(repsPlan().slice(0, 1));                // one step, 2 reps
@@ -385,6 +395,19 @@ test('camera errors become a reason to show', () => {
   eq(['NotAllowedError', 'SecurityError', 'NotFoundError', 'NotReadableError', 'OverconstrainedError', 'AbortError'].map(name => cameraProblem({name})),
     ['blocked', 'blocked', 'no camera', 'no camera', 'no camera', 'failed']);
   eq(cameraProblem(undefined), 'failed');
+});
+
+/* ---- recording a run ---- */
+test('recording format: MP4 where the browser can (iPhone), else WebM', () => {
+  eq(pickMimeType(t => t.startsWith('video/mp4')), 'video/mp4;codecs=avc1');
+  eq(pickMimeType(t => t === 'video/webm;codecs=vp8' || t === 'video/webm'), 'video/webm;codecs=vp8');
+  eq(pickMimeType(() => false), '');
+});
+test('watching back: the recording is where the video was at that moment, at any practice speed', () => {
+  const take = {videoStart: 20, recordingStart: 0.4, rate: 0.5};
+  eq(takeTimeAt(take, 20), 0.4, 'the start');
+  eq(takeTimeAt(take, 21), 2.4, 'one second of video at half speed took two seconds');
+  eq(takeTimeAt({...take, rate: 1}, 23), 3.4);
 });
 
 /* ---- report ---- */

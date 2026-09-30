@@ -213,6 +213,17 @@ body.fsmode .vcol{z-index:150}
 .meClose{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;
   font-size:13px;line-height:26px;padding:0}
 
+/* watching a run back: the video on the left half, your recording on the right, mirrored like the live view.
+   The recording sits above the masks but under the tap layer, so tapping still plays and pauses both. */
+.takeVideo{position:absolute;top:0;right:0;width:50%;height:100%;object-fit:contain;background:#000;transform:scaleX(-1);
+  z-index:3;pointer-events:none}
+.stage.review .meBox{display:none}
+.reviewBar{position:absolute;z-index:5;top:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;
+  padding:6px 8px 6px 14px;border-radius:999px;background:rgba(14,16,21,.88);color:#fff;white-space:nowrap;max-width:calc(100% - 16px)}
+.stage.fs .reviewBar{top:auto;bottom:calc(72px + env(safe-area-inset-bottom))}   /* the count is at the top in full screen */
+.reviewLbl{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.reviewBar .btn:not(.primary){background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+
 /* while practice has the video paused (a break, waiting for you, done, or paused), this card covers the middle of the
    picture, where YouTube draws its big play button; tapping it does what the main practice button does */
 .pauseCard{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);min-width:min(240px,70%);min-height:96px;

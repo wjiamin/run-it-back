@@ -12,6 +12,7 @@
      site.js     visit counts and the tip link
      wakelock.js keeping the screen on while a video is open
      camera.js   your camera in a corner of the video ("📷 Me")
+     recorder.js recording each run from the camera, to watch back side by side
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -19,8 +20,8 @@
        moving the practice session along.
 
    Sections, in order: state · helpers · debug report · YouTube player · video layout and full screen · practice session ·
-   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · your camera · sharing ·
-   start */
+   beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · your camera ·
+   watching a run back · sharing · start */
 
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
@@ -30,13 +31,14 @@ import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {keepScreenOn} from './wakelock.js';
 import {selfView, dragToCorners, CORNERS} from './camera.js';
+import {runRecorder, takeTimeAt} from './recorder.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-e';
+const APP_VERSION = '2026-09-30-f';
 
 /* ---------- state ---------- */
 
@@ -254,6 +256,8 @@ function onPlayerState(e){
 
   $('#playBtn').textContent = playing ? '❚❚' : '▶';
   if (e.data === STATE.CUED) readVideoInfo(true);
+  if (reviewing) followWithTake();
+  if (e.data === STATE.PLAYING && rec.recording) rec.markPlaying(currentTime());
   if (e.data === STATE.PLAYING){ reloading = false; showStageMessage(''); captionsOff(); if (player.setPlaybackRate) player.setPlaybackRate(rate); }
   if (e.data === STATE.ENDED && sessionRunning()) session.segmentEnd();   // the part ran to the very end of the video
   clockRaw = -1;
@@ -325,7 +329,8 @@ function applySound(){
    cover that strip, which is where YouTube draws its title bar. */
 const TITLE_STRIP = 96;
 function layoutVideo(){
-  const stage = $('#stage'), W = stage.clientWidth, H = stage.clientHeight;
+  // watching a run back, the video takes the left half (your recording is on the right, see .takeVideo)
+  const stage = $('#stage'), W = stage.clientWidth * (reviewing ? 0.5 : 1), H = stage.clientHeight;
   if (!W || !H) return;
   // in full screen keep the video inside the safe area, so a phone's notch or home bar doesn't push it off-centre
   let left = 0, right = 0, top = 0, bottom = 0;
@@ -415,6 +420,8 @@ const practiceEnv = {
   clearTimer: id => clearTimeout(id),
   onStep: step => { setRate(step.rate); applySound(); rememberProgress(step); },
   onFinish: () => { applySound(); forgetProgress(); countEvent('practice-complete'); },
+  onRunStart: run => recordRun(run),
+  onRunEnd: () => { if (rec.recording) rec.finish().then(syncWatch); },
   onChange: () => updateSessionUI(),
 };
 
@@ -433,6 +440,7 @@ const buildCurrentPlan = mode => buildPlan(settings, blocks(), {s: cover.rangeSt
 /** Build the plan and start at the first step matching `isStart(step, index)` (or the first step). */
 function startSession(mode, isStart){
   if (!hasRange()) return;
+  if (reviewing) closeReview();
   if (session) session.stop();
   const plan = buildCurrentPlan(mode);
   if (!plan.length) return;
@@ -453,6 +461,7 @@ function restartPart(){
 }
 
 function endSession(why){
+  rec.discard();   // a run being recorded was cut short
   if (!session) return;
   log('practice', 'stopped: ' + (why || 'the trim, plan or beat was changed'));
   session.stop(); session = null; applySound(); updateSessionUI();
@@ -540,7 +549,10 @@ function tick(){
   const countIn = countInNow(t);
   updateCountUI(t, countIn);
   scheduleClicks(t);
+  // note where the run really started playing, for watching it back (the player doesn't always say when it starts)
+  if (rec.recording && sessionRunning() && playing && performance.now() > session.ignoreUntil) rec.markPlaying(t);
   followSession(t);
+  if (reviewing) followReview(t);
   showCue(countIn);
 }
 
@@ -1036,7 +1048,7 @@ function showView(view){
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
   screenOn.want(view === 'player');
-  if (view === 'home') me.stop();
+  if (view === 'home'){ closeReview(); rec.clear(); syncWatch(); me.stop(); }
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();
@@ -1292,6 +1304,7 @@ const me = selfView({box: $('#meBox'), video: $('#meVideo'), log, onChange: sync
 
 /** The 📷 Me button, and a note when the camera couldn't start. */
 function syncMe(){
+  if (!me.on) rec.discard();
   $('#meBtn').setAttribute('aria-pressed', me.on);
   const note = me.problem ? ME_PROBLEMS[me.problem] : '';
   $('#meNote').textContent = note; $('#meNote').hidden = !note;
@@ -1309,6 +1322,71 @@ function wireMe(){
     settings.meCorner = corner; save(); placeMe(corner);
     log('camera', 'moved to the ' + corner + ' corner');
   });
+}
+
+/* ---------- watching a run back (see recorder.js) ----------
+   With 📷 Me on, each practice run is recorded. "▶ Watch back" shows the latest one next to the video: the video on the
+   left half of the picture at the speed you practised, your recording on the right, in step. The recording follows the
+   video: it plays and pauses with it, and is put back in step whenever it drifts. */
+
+const rec = runRecorder(log);
+let reviewing = false;
+let reviewSettleUntil = 0;   // after a jump the player reports its old position for a moment: ignore it until then
+
+function recordRun(run){
+  if (!me.on || reviewing) return rec.discard();
+  rec.start(me.stream, {label: stepLabel(run.step) + ' at ' + rateLabel(run.step.rate), rate: run.step.rate, end: run.step.e});
+}
+function syncWatch(){ $('#sWatch').hidden = !rec.take || reviewing; }
+
+function watchBack(){
+  const take = rec.take;
+  if (!take || !playerReady) return;
+  endSession('watching a run back');
+  reviewing = true;
+  $('#stage').classList.add('review');
+  $('#takeVideo').src = take.url; $('#takeVideo').hidden = false;
+  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = 'You: ' + take.label;
+  syncWatch(); layoutVideo();
+  log('camera', 'watching back ' + take.label);
+  countEvent('watch-back');
+  replayReview();
+}
+function replayReview(){
+  const take = rec.take;
+  if (!take) return closeReview();
+  $('#takeVideo').pause(); $('#takeVideo').currentTime = take.recordingStart;
+  reviewSettleUntil = performance.now() + REVIEW_SETTLE_MS;
+  setRate(take.rate); seek(take.videoStart); play();
+}
+/** The video started or stopped: the recording does the same, from the matching moment. */
+function followWithTake(){
+  const v = $('#takeVideo'), take = rec.take;
+  if (!take) return;
+  if (playing){ v.currentTime = Math.max(0, takeTimeAt(take, currentTime())); v.play().catch(() => {}); }
+  else v.pause();
+}
+/** Every frame while watching back: stop at the end of the run, and keep the recording in step. */
+const REVIEW_SETTLE_MS = 700;   // as long as practice.js waits after a jump (SETTLE_MS)
+function followReview(t){
+  const v = $('#takeVideo'), take = rec.take;
+  if (!take || !playing || performance.now() < reviewSettleUntil) return;
+  if (t >= take.end){ pause(); v.pause(); return; }
+  const want = takeTimeAt(take, t);
+  if (Math.abs(v.currentTime - want) > 0.25) v.currentTime = Math.max(0, want);
+}
+function closeReview(){
+  if (!reviewing) return;
+  reviewing = false;
+  const v = $('#takeVideo');
+  v.pause(); v.removeAttribute('src'); v.load(); v.hidden = true;
+  $('#stage').classList.remove('review'); $('#reviewBar').hidden = true;
+  pause(); layoutVideo(); syncWatch(); updateSessionUI();
+}
+function wireReview(){
+  $('#sWatch').addEventListener('click', watchBack);
+  $('#reviewReplay').addEventListener('click', replayReview);
+  $('#reviewClose').addEventListener('click', closeReview);
 }
 
 /* ---------- sharing (see share.js) ---------- */
@@ -1418,7 +1496,7 @@ function wireShare(){
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireReview();
 setupInstall(log);
 setupAnalytics(log); setupTips();
 renderSteps(); syncControls(); renderHome(); checkShareLink();
@@ -1426,4 +1504,4 @@ requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
 
 // for testing from the browser console
-window.__app = {getPlayer: () => player};
+window.__app = {getPlayer: () => player, getTake: () => rec.take};

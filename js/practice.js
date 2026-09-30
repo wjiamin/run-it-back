@@ -8,6 +8,9 @@
      onStep(step)                  a step (a part at one speed) is starting: set the speed and sound, remember progress
      onFinish()                    the plan is finished
      onChange()                    anything shown changed: redraw
+     onRunStart(run), onRunEnd(run)  optional: a run is starting (its seek and play are about to go out) / has played to
+                                   the end. run = {step, rep, from}. A run that is cut short (Again, skip, stopped) gets
+                                   no onRunEnd: the next onRunStart, or stopping, replaces it.
      log(kind, message)
      now(), setTimer(fn, ms), clearTimer(id)   clocks, swappable in tests
    The app's tick() calls segmentEnd() when the playhead reaches the end of the part (step.e). */
@@ -21,7 +24,7 @@ export class Practice {
   constructor(plan, mode, startIndex, env){
     this.plan = plan;
     this.mode = mode;             // 'all' (the whole plan) or 'full' (only the whole-section runs)
-    this.env = env;
+    this.env = Object.assign({onRunStart(){}, onRunEnd(){}}, env);
     this.index = startIndex;      // the step being played
     this.rep = 0;                 // which run of this step, from 0
     this.from = 0;                // where this run starts, count-in included
@@ -67,6 +70,7 @@ export class Practice {
       if (this.stopped) return;
       this.pausing = false;
       this.ignoreUntil = e.now() + SETTLE_MS;
+      e.onRunStart({step: this.step, rep: this.rep, from: this.from});
       e.seek(this.from); e.play(); e.onChange();
     };
     if (delay > 0){ this.pausing = true; e.pause(); this.timer = e.setTimer(go, delay); e.onChange(); }
@@ -84,6 +88,7 @@ export class Practice {
   /** A run finished: run it again, go to the next step (pausing first), wait for you, or finish. */
   advance(){
     const e = this.env, st = this.step, pauseMs = e.settings.rest * 1000;
+    e.onRunEnd({step: st, rep: this.rep, from: this.from});
     this.lastRun = {index: this.index, rep: this.rep};
     this.ignoreUntil = e.now() + SETTLE_MS + pauseMs;
     this.rep++;
