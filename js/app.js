@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-29-d';
+const APP_VERSION = '2026-09-30-a';
 
 /* ---------- state ---------- */
 
@@ -909,7 +909,14 @@ function stepTitle(st, nb){
 }
 
 /** The practice card, the mini bar in full screen, and which buttons are usable. */
+/** The card over the video while practice has it paused: it covers YouTube's own play button (see .pauseCard).
+    Not on the Beats tab, where you pause to see the exact frame, and never over an ad (its Skip button must stay free). */
+function showPauseCard(){
+  $('#pauseCard').hidden = !(session && playerReady && !playing && !adPlaying && tab === 'practice');
+}
+
 function updateSessionUI(){
+  showPauseCard();
   if (!hasRange()) return;
   const nb = blocks().length, s = session;
   const resume = s ? null : resumePoint();
@@ -943,6 +950,8 @@ function updateSessionUI(){
     progress = (s.index + s.rep / st.reps) / s.plan.length;
   }
   $('#sTitle').textContent = title; $('#sSub').textContent = sub; $('#sMain').textContent = main;
+  $('#pcHead').textContent = !s ? '' : s.done ? title : s.pausing ? 'Short break' : s.waiting ? title : 'Paused';
+  $('#pcAct').textContent = '▶ ' + main;
   $('#sProg').style.width = Math.round(progress * 100) + '%';
   $('#sTip').hidden = !(tipsOn() && s && s.done);
 
@@ -1017,6 +1026,7 @@ function setTab(name){
   $('#panelBeats').hidden = name !== 'beats'; $('#panelPractice').hidden = name !== 'practice';
   if (name === 'beats' && !hasGrid() && rate === 1) setRate(0.5);   // half speed makes tapping the beat easier
   if (name === 'practice') updatePracticeUI(); else updateBeatsUI();
+  showPauseCard();
 }
 
 /** Make the toggle buttons match the state. */
@@ -1049,6 +1059,7 @@ function wireHome(){
 function wirePlayerControls(){
   $('#playBtn').addEventListener('click', togglePlay);
   // tapping the video: if practice is waiting for you or pausing between runs, carry on; otherwise play or pause
+  $('#pauseCard').addEventListener('click', onMainButton);
   $('#shield').addEventListener('click', () => { if (session && (session.waiting || session.pausing)) onMainButton(); else togglePlay(); });
   $('#muteBtn').addEventListener('click', toggleMute);
   $('#fsBtn').addEventListener('click', toggleFs);
