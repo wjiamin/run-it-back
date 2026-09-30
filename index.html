@@ -149,6 +149,12 @@
         <div class="stage mirrorHost" id="stage">
           <div id="playerWrap" class="mirror"><div id="player"></div></div>
           <div class="mask" id="maskT"></div><div class="mask" id="maskB"></div>
+          <video id="takeVideo" class="takeVideo" playsinline muted hidden aria-label="Your recording of the run"></video>
+          <div id="reviewBar" class="reviewBar" hidden>
+            <span id="reviewLbl" class="reviewLbl"></span>
+            <button id="reviewReplay" class="btn sm">↺ Replay</button>
+            <button id="reviewClose" class="btn sm primary">Back to practice</button>
+          </div>
           <div class="shield" id="shield" aria-hidden="true"></div>
           <button id="pauseCard" class="pauseCard" hidden><span class="pcHead" id="pcHead"></span><span class="pcAct" id="pcAct"></span></button>
           <div id="stageMsg" class="stageMsg" hidden></div>
@@ -293,6 +299,7 @@
               <div class="sNav2">
                 <button id="sFromStart" class="btn sm" hidden>Start from the beginning</button>
                 <button id="sFull" class="btn sm">Run the whole section only</button>
+                <button id="sWatch" class="btn sm" hidden>▶ Watch back</button>
               </div>
               <div class="chips" id="chips"></div>
             </div>
