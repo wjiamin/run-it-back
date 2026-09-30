@@ -111,6 +111,8 @@ body:not(.pm) #dbgBtn, body:not(.pm) #shareBtn{display:none}
 
 /* player layout: video first, big */
 .stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:14px}
+/* zooming in (see zoom.js): the layer holding the video is scaled and moved; the masks above it still hide YouTube's bars */
+.zoomLayer{position:absolute;inset:0;transform-origin:0 0;pointer-events:none}
 #playerWrap{position:absolute;pointer-events:none}
 #playerWrap.mirror{transform:scaleX(-1)}
 #playerWrap iframe{width:100%;height:100%;border:0;display:block}
@@ -233,7 +235,16 @@ body.fsmode .vcol{z-index:150}
 @keyframes pauseCardFade{0%,65%{opacity:1}100%{opacity:0}}
 .pauseCard .pcHead{font-size:13px;font-weight:600;opacity:.8;letter-spacing:.02em}
 .pauseCard .pcAct{font-size:18px;font-weight:800;color:#ff5c9a}
-.shield{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.shield{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:pan-y}
+.stage.zoomed .shield{touch-action:none;cursor:grab}   /* zoomed in: a drag moves the picture instead of the page */
+/* the 🔍 button, on the video in the bottom-left corner (bottom right when your camera window is there; above the
+   controls in full screen) */
+.zoomBtn{position:absolute;z-index:4;left:10px;bottom:10px;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(14,16,21,.6);color:#fff;font-size:17px;line-height:1;padding:0}
+.zoomBtn[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
+.stage:has(.meBox.bl:not([hidden])) .zoomBtn{left:auto;right:10px}
+.stage.fs .zoomBtn{bottom:calc(76px + env(safe-area-inset-bottom))}
+.stage.ad .zoomBtn,.stage.review .zoomBtn{display:none}   /* not over an ad; not while watching back */
 .stage.ad .shield{display:none}
 .stage.ad #playerWrap{pointer-events:auto;transform:none}
 .stage.ad .mask{display:none}

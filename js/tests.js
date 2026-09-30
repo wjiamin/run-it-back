@@ -9,6 +9,7 @@ import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan,
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
 import {pickMimeType, takeTimeAt} from './recorder.js';
+import {NO_ZOOM, clampZoom, zoomAround, panBy, zoomTransform, MAX_ZOOM} from './zoom.js';
 
 const results = [];
 function test(name, fn){
@@ -408,6 +409,33 @@ test('watching back: the recording is where the video was at that moment, at any
   eq(takeTimeAt(take, 20), 0.4, 'the start');
   eq(takeTimeAt(take, 21), 2.4, 'one second of video at half speed took two seconds');
   eq(takeTimeAt({...take, rate: 1}, 23), 3.4);
+});
+
+/* ---- zooming in ---- */
+const nearZoom = (z, want, what) => { for (const k of ['s', 'cx', 'cy']) near(z[k], want[k], 1e-9, what + ' ' + k); };
+test('zoom: in on the middle, and around a point that stays where it is', () => {
+  nearZoom(zoomAround(NO_ZOOM, 0.5, 0.5, 2), {s: 2, cx: 0.5, cy: 0.5}, 'middle');
+  nearZoom(zoomAround(NO_ZOOM, 0.25, 0.25, 2), {s: 2, cx: 0.375, cy: 0.375}, 'the point a quarter in stays a quarter in');
+  nearZoom(zoomAround(zoomAround(NO_ZOOM, 0.25, 0.25, 2), 0.25, 0.25, 0.5), NO_ZOOM, 'and back out');
+});
+test('zoom: limited to 1× to ' + MAX_ZOOM + '×, and the view never leaves the picture', () => {
+  eq(clampZoom({s: 0.5, cx: 0.9, cy: 0.1}), NO_ZOOM);
+  eq(clampZoom({s: 10, cx: 0.5, cy: 0.5}).s, MAX_ZOOM);
+  eq(clampZoom({s: 2, cx: 0.9, cy: 0.1}), {s: 2, cx: 0.75, cy: 0.25});
+  eq(clampZoom({s: NaN, cx: undefined, cy: null}).s, 1, 'a broken save');
+});
+test('zoom: dragging moves the view the other way, and stops at the edge', () => {
+  nearZoom(panBy({s: 2, cx: 0.5, cy: 0.5}, 100, 0, 400, 300), {s: 2, cx: 0.375, cy: 0.5}, 'drag right: more of the left');
+  nearZoom(panBy({s: 2, cx: 0.5, cy: 0.5}, 5000, -5000, 400, 300), {s: 2, cx: 0.25, cy: 0.75}, 'to the edges');
+});
+test('zoom: the layer transform keeps the chosen point in the middle of the video', () => {
+  const rect = {x: 10, y: 20, w: 400, h: 225};
+  eq(zoomTransform(rect, NO_ZOOM), {x: 0, y: 0, s: 1});
+  const t = zoomTransform(rect, {s: 2, cx: 0.5, cy: 0.5});
+  near(t.s * (rect.x + rect.w / 2) + t.x, rect.x + rect.w / 2, 1e-9, 'x: the middle stays');
+  near(t.s * (rect.y + rect.h / 2) + t.y, rect.y + rect.h / 2, 1e-9, 'y: the middle stays');
+  const t2 = zoomTransform(rect, {s: 2, cx: 0.25, cy: 0.5});   // the left quarter of the picture in the middle
+  near(t2.s * (rect.x + 0.25 * rect.w) + t2.x, rect.x + rect.w / 2, 1e-9, 'the chosen point is in the middle');
 });
 
 /* ---- report ---- */

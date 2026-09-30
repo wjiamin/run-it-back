@@ -147,7 +147,7 @@
     <div class="playerGrid">
       <div class="vcol">
         <div class="stage mirrorHost" id="stage">
-          <div id="playerWrap" class="mirror"><div id="player"></div></div>
+          <div id="zoomLayer" class="zoomLayer"><div id="playerWrap" class="mirror"><div id="player"></div></div></div>
           <div class="mask" id="maskT"></div><div class="mask" id="maskB"></div>
           <video id="takeVideo" class="takeVideo" playsinline muted hidden aria-label="Your recording of the run"></video>
           <div id="reviewBar" class="reviewBar" hidden>
@@ -160,6 +160,8 @@
           <div id="stageMsg" class="stageMsg" hidden></div>
           <div class="cue" id="cue" hidden aria-hidden="true"></div>
           <div class="flash" id="flash" aria-hidden="true"></div>
+          <button id="vZoomBtn" class="zoomBtn" aria-pressed="false" aria-label="Zoom in on the video"
+            title="Zoom in (or pinch, or Ctrl + scroll). Drag to move around. Tap again for the whole picture.">🔍</button>
           <div id="meBox" class="meBox br" hidden aria-label="You, from the front camera (drag to another corner)">
             <video id="meVideo" playsinline muted autoplay></video>
             <button id="meClose" class="meClose" aria-label="Turn the camera off">✕</button>

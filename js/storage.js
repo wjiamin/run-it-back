@@ -10,6 +10,7 @@
        oneT                                    a marked 1 that the counts follow
        one1, one2, oneBeats                    the two marked 1s and the beats between them (0 when not locked)
        plan                                    this video's practice plan: the PLAN_KEYS fields (see below)
+       zoom                                    zoomed in on part of the picture: {s, cx, cy} (see zoom.js), or missing
        resume                                  where practice stopped, to continue next time:
                                                {part, rate, label, counts, rangeStart, rangeEnd, blocks} (see plan.js resumeIndex)
    The field names are kept short and unchanged so older saves keep loading. */
