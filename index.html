@@ -154,6 +154,10 @@
           <div id="stageMsg" class="stageMsg" hidden></div>
           <div class="cue" id="cue" hidden aria-hidden="true"></div>
           <div class="flash" id="flash" aria-hidden="true"></div>
+          <div id="meBox" class="meBox br" hidden aria-label="You, from the front camera (drag to another corner)">
+            <video id="meVideo" playsinline muted autoplay></video>
+            <button id="meClose" class="meClose" aria-label="Turn the camera off">✕</button>
+          </div>
           <div class="fsCount" id="fsCount"><div class="fsStat" id="fsStat"></div></div>
           <div class="fsBar" id="fsBar"></div>
         </div>
@@ -161,6 +165,7 @@
         <div id="ctlMainHome">
           <div id="ctlMain">
             <div class="adNote" id="adNote" hidden></div>
+            <div class="adNote" id="meNote" role="status" hidden></div>
             <div class="count" id="countRow" aria-live="off">
               <div class="num" id="cNum">–</div>
               <div class="segs" id="cSegs"></div>
@@ -187,6 +192,7 @@
             <button id="mirrorBtn" class="btn sm" aria-pressed="true" title="Flip the video, so their right is your right">⇆ Mirror</button>
             <button id="flashBtn" class="btn sm" aria-pressed="false" title="Flash the video edge on every count, to check the count lines up">✦ Flash</button>
             <button id="clickBtn" class="btn sm" aria-pressed="false" title="Play a metronome click on every count">♪ Click</button>
+            <button id="meBtn" class="btn sm" aria-pressed="false" title="See yourself from the front camera, mirrored, in a corner of the video">📷 Me</button>
             <button id="adBtn" class="btn sm" aria-pressed="false" title="An ad in the way? Unlock the video so you can press YouTube's Skip button">Skip ad</button>
             <div class="miniSess" id="miniSess">
               <span class="ms" id="mSub"></span>

@@ -69,7 +69,7 @@ export function presetOf(settings){
 }
 
 export const defaultSettings = () => ({
-  counts: 8, mirror: true, muted: false, flash: false, click: false, sharePlan: true, v: SETTINGS_VERSION,
+  counts: 8, mirror: true, muted: false, flash: false, click: false, sharePlan: true, meCorner: 'br', v: SETTINGS_VERSION,
   ...defaultPlan(),
 });
 
