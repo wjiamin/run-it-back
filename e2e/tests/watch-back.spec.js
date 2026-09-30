@@ -1,4 +1,5 @@
-// With 📷 Me on, each run is recorded; ▶ Watch back plays it side by side with the video, in step (js/recorder.js).
+// With 📷 Me on, ⏺ records you over one piece of the video, and each practice run is recorded too; ▶ Watch back plays
+// the latest recording side by side with the video, in step (js/recorder.js).
 import {test, expect, cover, withSaved, openCover} from '../fixtures.js';
 
 test.use({permissions: ['camera']});
@@ -63,6 +64,81 @@ test('the recording is forgotten when you leave the video', async ({page}) => {
   await page.click('#backBtn');
   await page.click('#recent [data-id="' + A + '"]');
   await expect(page.locator('#sWatch')).toBeHidden();
+});
+
+/* ---- ⏺: recording any time, not only in practice ---- */
+
+async function cameraOn(page){
+  await withSaved(page, [shortPart]);
+  await openCover(page, A);
+  await page.click('#meBtn');
+  await expect(page.locator('#meBtn')).toHaveAttribute('aria-pressed', 'true');
+}
+
+test('⏺ plays the video and records until you pause; Watch back plays that piece, in step', async ({page}) => {
+  await cameraOn(page);
+  await expect(page.locator('#meRec')).toHaveText('⏺');
+  await expect(page.locator('#meBox .meRecBadge')).toBeHidden();
+  await page.click('#meRec');
+  await expect(page.locator('#meRec'), 'it becomes the stop button').toHaveText('■');
+  await expect(page.locator('#playBtn'), 'the video plays').toHaveText('❚❚');
+  await expect(page.locator('#meBox')).toHaveClass(/\brecording\b/);
+  await expect(page.locator('#meBox .meRecBadge')).toBeVisible();
+  await page.waitForTimeout(2500);
+
+  // pausing ends the recording
+  await page.click('#playBtn');
+  await expect(page.locator('#meRec')).toHaveText('⏺');
+  await expect(page.locator('#meBox .meRecBadge')).toBeHidden();
+  await expect.poll(() => page.evaluate(() => !!window.__app.getTake())).toBe(true);
+  const take = await page.evaluate(() => window.__app.getTake());
+  expect(take.videoStart).toBeLessThan(1);
+  expect(take.videoEnd - take.videoStart).toBeGreaterThan(1.5);
+
+  // ▶ on the camera window watches it back, labelled with the piece of video, from its start
+  await page.locator('#scrub').fill('700');   // somewhere else first
+  await expect(page.locator('#meWatch')).toBeVisible();
+  await page.click('#meWatch');
+  await expect(page.locator('#reviewLbl')).toHaveText(/^You: 0:0\d–0:0\d$/);
+  await expect.poll(() => page.evaluate(() => window.__yt.player.t), {message: 'back to the start of the piece'}).toBeLessThan(3);
+  await page.waitForTimeout(1000);
+  const sync = await page.evaluate(() => ({videoT: window.__yt.player.t, takeT: document.querySelector('#takeVideo').currentTime}));
+  expect(Math.abs(sync.takeT - (take.recordingStart + sync.videoT - take.videoStart)), 'in step').toBeLessThan(0.5);
+
+  // it stops at the end of the piece
+  await expect.poll(() => page.evaluate(() => document.querySelector('#takeVideo').paused), {timeout: 10_000}).toBe(true);
+  await expect(page.locator('#playBtn')).toHaveText('▶');
+  expect(await page.evaluate(() => window.__yt.player.t)).toBeLessThan(take.videoEnd + 0.5);
+});
+
+test('a jump while recording ends the recording there', async ({page}) => {
+  await cameraOn(page);
+  await page.click('#meRec');
+  await expect(page.locator('#playBtn')).toHaveText('❚❚');
+  await page.waitForTimeout(2000);
+  await page.locator('#scrub').fill('700');
+  await expect(page.locator('#meRec')).toHaveText('⏺');
+  await expect.poll(() => page.evaluate(() => window.__app.getTake()?.videoEnd)).toBeLessThan(4);
+  await expect(page.locator('#playBtn'), 'the video plays on, unrecorded').toHaveText('❚❚');
+});
+
+test('■ before the video plays: nothing to watch back, and a note says why', async ({page}) => {
+  await cameraOn(page);
+  await page.click('#meRec');
+  await page.click('#meRec');
+  await expect(page.locator('#meNote')).toContainText('the video has to play while recording');
+  await expect(page.locator('#meWatch')).toBeHidden();
+  await expect(page.locator('#sWatch')).toBeHidden();
+});
+
+test('turning the camera off while recording keeps what was recorded', async ({page}) => {
+  await cameraOn(page);
+  await page.click('#meRec');
+  await page.waitForTimeout(2000);
+  await page.click('#meClose');
+  await expect(page.locator('#meBox')).toBeHidden();
+  await expect.poll(() => page.evaluate(() => !!window.__app.getTake())).toBe(true);
+  await expect(page.locator('#sWatch')).toBeVisible();
 });
 
 test('in full screen the watch-back buttons keep clear of the count and the controls', async ({page}) => {

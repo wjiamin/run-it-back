@@ -12,7 +12,7 @@ A small web app for learning K-pop dance covers faster from a YouTube practice v
 - As you add blocks, everything learned so far runs from the top (1–2, then 1–3, then 1–4…)
 - Share a practice as a link: whoever opens it gets the video with the beat and part already set, and your practice plan if you choose
 - Again redoes a run, Next skips to the next speed, and next time you can continue where you left off
-- 📷 Me shows you from the front camera, mirrored, in a corner of the video (drag it to any corner). Each run is recorded, and ▶ Watch back plays your latest run side by side with the video, in step. Only the latest run is kept, in memory; nothing is saved or sent
+- 📷 Me shows you from the front camera, mirrored, in a corner of the video (drag it to any corner). ⏺ on the window plays the video and records you over one piece of it, until ■ or the video pauses, jumps or changes speed (up to 10 minutes), and each practice run is recorded too. ▶ Watch back plays your latest recording side by side with that piece of the video, in step. Only the latest recording is kept, in memory; nothing is saved or sent
 - Zoom in on your member: pinch, Ctrl + scroll or 🔍, and drag to move around. The zoom is remembered per video
 - The screen stays on while a video is open, so your phone doesn't lock mid-practice
 - Install it to your home screen: it opens full screen and starts offline
@@ -42,7 +42,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/site.js` | Visit counts (GoatCounter) and the tip link, switched on by the two settings at its top |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
 | `js/camera.js` | Your camera (📷 Me) in a corner of the video, mirrored: starting and stopping it, and dragging it to another corner |
-| `js/recorder.js` | Recording each practice run from the camera (latest run only, in memory), and keeping it in step with the video when watching back |
+| `js/recorder.js` | Recording yourself from the camera (⏺ over one piece of the video, or each practice run; latest only, in memory), and keeping it in step with the video when watching back |
 | `js/zoom.js` | Zooming in on the video to follow one member: the zoom maths (tested) and the pinch, drag and Ctrl + scroll gestures |
 | `js/wakelock.js` | Keeping the screen on while a video is open, so the phone doesn't lock mid-practice |
 | `js/util.js` | Small helpers |

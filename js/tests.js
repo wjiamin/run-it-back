@@ -8,7 +8,7 @@ import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
-import {pickMimeType, takeTimeAt} from './recorder.js';
+import {pickMimeType, takeTimeAt, pieceUntil} from './recorder.js';
 import {NO_ZOOM, clampZoom, zoomAround, panBy, zoomTransform, MAX_ZOOM} from './zoom.js';
 
 const results = [];
@@ -409,6 +409,11 @@ test('watching back: the recording is where the video was at that moment, at any
   eq(takeTimeAt(take, 20), 0.4, 'the start');
   eq(takeTimeAt(take, 21), 2.4, 'one second of video at half speed took two seconds');
   eq(takeTimeAt({...take, rate: 1}, 23), 3.4);
+});
+test('recording: the piece of video recorded ends where the recording stopped, at the speed it played', () => {
+  eq(pieceUntil({videoStart: 10, recordingStart: 2, rate: 1}, 5), {videoStart: 10, recordingStart: 2, rate: 1, videoEnd: 13});
+  eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 0.5}, 12).videoEnd, 42, '4 s at half speed is 2 s of video');
+  eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 1}, 8.1), null, 'too short to keep');
 });
 
 /* ---- zooming in ---- */
