@@ -31,7 +31,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-a';
+const APP_VERSION = '2026-09-30-b';
 
 /* ---------- state ---------- */
 
@@ -910,9 +910,21 @@ function stepTitle(st, nb){
 
 /** The practice card, the mini bar in full screen, and which buttons are usable. */
 /** The card over the video while practice has it paused: it covers YouTube's own play button (see .pauseCard).
-    Not on the Beats tab, where you pause to see the exact frame, and never over an ad (its Skip button must stay free). */
+    When the video starts playing it stays a moment longer and fades, because YouTube flashes a pause symbol in the
+    middle as it starts (that falls in the count-in, before the dance). Not on the Beats tab, where you pause to see the
+    exact frame, and never over an ad (its Skip button must stay free). */
+const PAUSE_CARD_FADE_MS = 1100;   // as long as .pauseCard.fading's animation
+let pauseCardTimer = 0;            // set while the card is fading out
 function showPauseCard(){
-  $('#pauseCard').hidden = !(session && playerReady && !playing && !adPlaying && tab === 'practice');
+  const card = $('#pauseCard');
+  const inPractice = !!session && playerReady && !adPlaying && tab === 'practice';
+  const setShown = shown => { clearTimeout(pauseCardTimer); pauseCardTimer = 0; card.classList.remove('fading'); card.hidden = !shown; };
+  if (inPractice && !playing) return setShown(true);
+  if (inPractice && !card.hidden){   // it just started playing: fade out (once; this runs again while it fades)
+    if (!pauseCardTimer){ card.classList.add('fading'); pauseCardTimer = setTimeout(() => setShown(false), PAUSE_CARD_FADE_MS); }
+    return;
+  }
+  setShown(false);
 }
 
 function updateSessionUI(){
