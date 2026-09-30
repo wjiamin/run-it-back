@@ -13,6 +13,7 @@
      wakelock.js keeping the screen on while a video is open
      camera.js   your camera in a corner of the video ("📷 Me")
      recorder.js recording each run from the camera, to watch back side by side
+     zoom.js     zooming in on the video (pinch, drag, Ctrl + scroll)
 
    The page updates in two ways:
      - on events (a button, a player state change), the matching update... or render... function redraws its part;
@@ -21,7 +22,7 @@
 
    Sections, in order: state · helpers · debug report · YouTube player · video layout and full screen · practice session ·
    beat check · every frame · Beats tab · trim window · Practice tab · home and screens · wiring · your camera ·
-   watching a run back · sharing · start */
+   watching a run back · zooming in · sharing · start */
 
 import {$, $$, clamp, escapeHtml, fmtTime, fmtTimePrecise, rateLabel, parseYouTubeId} from './util.js';
 import {fitBeats, eightCountsBetween, periodFromTwoOnes} from './beats.js';
@@ -32,13 +33,14 @@ import {setupInstall} from './pwa.js';
 import {keepScreenOn} from './wakelock.js';
 import {selfView, dragToCorners, CORNERS} from './camera.js';
 import {runRecorder, takeTimeAt} from './recorder.js';
+import {NO_ZOOM, clampZoom, isZoomed, zoomAround, zoomTransform, zoomGestures} from './zoom.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-f';
+const APP_VERSION = '2026-09-30-g';
 
 /* ---------- state ---------- */
 
@@ -139,6 +141,7 @@ function debugReport(){
       ', flash ' + (settings.flash ? 'on' : 'off') + ', click ' + (settings.click ? 'on' : 'off'));
     lines.push('video: length ' + (duration || '?') + ' s, ' + (playerReady ? (playing ? 'playing' : 'not playing') : 'player not ready') +
       ', speed ' + rate + 'x, sound ' + (soundOff ? 'off' : 'on') + ', ad ' + (adPlaying ? 'playing' : adUnlocked ? 'unlocked by hand' : 'no'));
+    lines.push('zoom: ' + (isZoomed(zoomOf()) ? zoomOf().s.toFixed(2) + 'x at ' + zoomOf().cx.toFixed(2) + ', ' + zoomOf().cy.toFixed(2) : 'none'));
     lines.push('full screen: ' + (fsOn ? (fsFallback ? 'on (fallback layout)' : 'on (browser)') : 'off') + ', screen kept on: ' + screenOn.status() +
       ', camera ' + (me.on ? 'on' : me.problem ? 'off (' + me.problem + ')' : 'off'));
     if (hasRange()) lines.push('range: ' + fmtTimePrecise(cover.rangeStart) + ' to ' + fmtTimePrecise(cover.rangeEnd) + ', ' + rangeCounts() + ' counts, ' + blocks().length + ' blocks');
@@ -193,6 +196,7 @@ async function openCover(id){
   // this video's own plan; a new video starts with the plan used last
   if (cover.plan) Object.assign(settings, pickPlan(cover.plan)); else cover.plan = pickPlan(settings);
   save(); renderSteps();
+  applyZoom();   // this video's own zoom, straight away (not a frame later with the previous one)
   playerReady = false; duration = cover.dur || 0; clockRaw = -1; shownCountKey = ''; zoomed = false;
   adUnlocked = false; adPlaying = false; lastPlayerState = ''; reloading = false; setMore(false);
   log('video', 'open: ' + (hasGrid() ? 'beat set (' + bpm().toFixed(1) + ' BPM)' : 'no beat yet') + ', stored length ' + (cover.dur || 'none'));
@@ -300,7 +304,11 @@ function play(){ if (playerReady && !reloading) player.playVideo(); }   // a rel
 function pause(){ if (playerReady) player.pauseVideo(); }
 function togglePlay(){ if (!playerReady) return; playing ? player.pauseVideo() : player.playVideo(); }
 function setRate(r){ rate = r; if (playerReady && player.setPlaybackRate) player.setPlaybackRate(r); syncControls(); }
-function setMirror(on){ settings.mirror = on; save(); syncControls(); }
+function setMirror(on){
+  settings.mirror = on; save(); syncControls();
+  // keep the same dancer in view: mirroring moves them to the other side of the picture
+  if (cover && isZoomed(zoomOf())) setZoom({...zoomOf(), cx: 1 - zoomOf().cx});
+}
 
 function toggleMute(){
   if (!playerReady) return;
@@ -345,6 +353,8 @@ function layoutVideo(){
   wrap.style.left = (left + (availW - vidW) / 2) + 'px'; wrap.style.top = (top + (availH - vidH) / 2 - TITLE_STRIP) + 'px';
   $('#maskT').style.height = Math.max(0, top + (availH - vidH) / 2) + 'px';
   $('#maskB').style.height = Math.max(0, bottom + (availH - vidH) / 2) + 'px';
+  videoRect = {x: left + (availW - vidW) / 2, y: top + (availH - vidH) / 2, w: vidW, h: vidH};
+  applyZoom();
 }
 
 /* Full screen moves the controls into the stage: the play bar into #fsBar at the bottom, the count into #fsCount in the
@@ -1096,7 +1106,10 @@ function wirePlayerControls(){
   $('#playBtn').addEventListener('click', togglePlay);
   // tapping the video: if practice is waiting for you or pausing between runs, carry on; otherwise play or pause
   $('#pauseCard').addEventListener('click', onMainButton);
-  $('#shield').addEventListener('click', () => { if (session && (session.waiting || session.pausing)) onMainButton(); else togglePlay(); });
+  $('#shield').addEventListener('click', () => {
+    if (zoomer && zoomer.justMoved()) return;   // the end of a drag or pinch, not a tap
+    if (session && (session.waiting || session.pausing)) onMainButton(); else togglePlay();
+  });
   $('#muteBtn').addEventListener('click', toggleMute);
   $('#fsBtn').addEventListener('click', toggleFs);
   $('#moreBtn').addEventListener('click', () => { setMore(!$('#stage').classList.contains('more')); bumpControls(); });
@@ -1271,6 +1284,9 @@ function wireKeyboard(){
     else if (k === 'a') again();
     else if (k === 'n') skipAhead();
     else if (k === 'escape' && fsOn && fsFallback) toggleFs();
+    else if (k === '+' || k === '=') zoomStep(1.25);
+    else if (k === '-') zoomStep(1 / 1.25);
+    else if (k === '0') setZoom(NO_ZOOM);
     else if (k === 'arrowleft' || k === 'arrowright'){
       if (el.classList && el.classList.contains('tHead')) return;   // the trim handles use the arrows themselves
       e.preventDefault();
@@ -1389,6 +1405,35 @@ function wireReview(){
   $('#reviewClose').addEventListener('click', closeReview);
 }
 
+/* ---------- zooming in (see zoom.js) ----------
+   To follow one member of a group: pinch, Ctrl + scroll or 🔍 to zoom, drag to move. The zoom is kept per video
+   (cover.zoom), since your member stands somewhere different in each one. */
+
+let videoRect = {x: 0, y: 0, w: 1, h: 1};   // where the video is in the stage (see layoutVideo)
+let zoomer = null;                          // the gestures (see wireZoom)
+let zoomSaveTimer = 0;
+const zoomOf = () => (cover && cover.zoom) || NO_ZOOM;
+
+function setZoom(zoom){
+  if (!cover) return;
+  const z = clampZoom(zoom);
+  if (isZoomed(z)) cover.zoom = z; else delete cover.zoom;
+  applyZoom();
+  clearTimeout(zoomSaveTimer); zoomSaveTimer = setTimeout(save, 400);   // not on every move of a drag
+}
+/** Zoom in or out around the middle of what's showing (the 🔍 button and the + and − keys). */
+const zoomStep = factor => setZoom(zoomAround(zoomOf(), 0.5, 0.5, factor));
+function applyZoom(){
+  const z = zoomOf(), t = zoomTransform(videoRect, z), zoomed = isZoomed(z);
+  $('#zoomLayer').style.transform = zoomed ? 'translate(' + t.x + 'px,' + t.y + 'px) scale(' + t.s + ')' : '';
+  $('#stage').classList.toggle('zoomed', zoomed);
+  $('#vZoomBtn').setAttribute('aria-pressed', zoomed);
+}
+function wireZoom(){
+  zoomer = zoomGestures($('#shield'), {rect: () => videoRect, get: zoomOf, set: setZoom});
+  $('#vZoomBtn').addEventListener('click', () => isZoomed(zoomOf()) ? setZoom(NO_ZOOM) : zoomStep(2));
+}
+
 /* ---------- sharing (see share.js) ---------- */
 
 /** "Chill plan, 8 counts per block" */
@@ -1496,7 +1541,7 @@ function wireShare(){
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireReview();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireReview(); wireZoom();
 setupInstall(log);
 setupAnalytics(log); setupTips();
 renderSteps(); syncControls(); renderHome(); checkShareLink();
