@@ -214,16 +214,14 @@ body.fsmode .vcol{z-index:150}
 .stage.fs .meBox.bl,.stage.fs .meBox.br{bottom:calc(76px + env(safe-area-inset-bottom))}
 .meClose{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;
   font-size:13px;line-height:26px;padding:0}
-/* ⏺ record (■ while recording) and ▶ watch back, along the bottom of the window; ● REC while recording */
-.meActs{position:absolute;left:0;right:0;bottom:6px;display:flex;justify-content:center;gap:8px}
-.meAct{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.5);background:rgba(0,0,0,.6);color:#fff;
-  font-size:14px;line-height:30px;padding:0;cursor:pointer}
-.meRec{color:#ff4d4d}
-.meRec[aria-pressed=true]{background:#e02424;border-color:#e02424;color:#fff}
+/* ● REC on the camera window while recording (the Record tab) */
 .meRecBadge{display:none;position:absolute;top:6px;left:6px;padding:1px 6px;border-radius:6px;background:#e02424;color:#fff;
   font-size:10px;font-weight:700;letter-spacing:.04em}
 .meBox.recording{border-color:#e02424}
 .meBox.recording .meRecBadge{display:block}
+.recStatus{font-weight:600;margin:0 0 12px;font-variant-numeric:tabular-nums}
+.recStatus.on{color:#e02424}
+#rRec[aria-pressed=true]{background:#e02424;border-color:#e02424;color:#fff}
 
 /* watching a run back: the video on the left half, your recording on the right, mirrored like the live view.
    The recording sits above the masks but under the tap layer, so tapping still plays and pauses both. */
@@ -262,7 +260,8 @@ body.fsmode .vcol{z-index:150}
 .stage.fs .adNote{color:#fff}
 
 .tabs{display:flex;gap:6px;margin-top:14px}
-.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:42px;font-weight:600}
+.tabs button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:42px;font-weight:600;white-space:nowrap;padding:0 6px}
+@media (max-width:360px){.tabs button{font-size:14px}}
 .tabs button[aria-selected=true]{background:var(--text);color:var(--bg);border-color:var(--text)}
 
 /* beats */
