@@ -32,7 +32,7 @@ import {Practice} from './practice.js';
 import {setupInstall} from './pwa.js';
 import {keepScreenOn} from './wakelock.js';
 import {selfView, dragToCorners, CORNERS} from './camera.js';
-import {runRecorder, takeTimeAt, canRecord} from './recorder.js';
+import {runRecorder, takeTimeAt, takeSync, canRecord} from './recorder.js';
 import {NO_ZOOM, clampZoom, isZoomed, zoomAround, zoomTransform, zoomGestures} from './zoom.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
@@ -40,7 +40,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-09-30-h';
+const APP_VERSION = '2026-10-01-a';
 
 /* ---------- state ---------- */
 
@@ -59,7 +59,7 @@ let reloading = false;              // the video is being reloaded after it ende
 let clockRaw = -1, clockRawAt = 0;  // see currentTime()
 
 // screen
-let tab = 'beats';                  // 'beats' or 'practice'
+let tab = 'beats';                  // 'beats', 'practice' or 'record'
 let scrubbing = false;              // dragging the seek bar
 let shownCountKey = '';             // what the count display shows, so it only redraws when that changes
 
@@ -432,8 +432,6 @@ const practiceEnv = {
   clearTimer: id => clearTimeout(id),
   onStep: step => { setRate(step.rate); applySound(); rememberProgress(step); },
   onFinish: () => { applySound(); forgetProgress(); countEvent('practice-complete'); },
-  onRunStart: run => recordRun(run),
-  onRunEnd: () => { if (rec.recording && !rec.manual) rec.finish(); },
   onChange: () => updateSessionUI(),
 };
 
@@ -473,7 +471,6 @@ function restartPart(){
 }
 
 function endSession(why){
-  if (!rec.manual) rec.discard();   // a run being recorded was cut short
   if (!session) return;
   log('practice', 'stopped: ' + (why || 'the trim, plan or beat was changed'));
   session.stop(); session = null; applySound(); updateSessionUI();
@@ -564,7 +561,7 @@ function tick(){
   followRecording(t);
   followSession(t);
   if (reviewing) followReview(t);
-  showCue(countIn);
+  showCue(countIn || recCountdownLeft());
 }
 
 /* An ad is playing when the player reports a different length from the video's own. Practice waits, and the video is
@@ -1060,7 +1057,7 @@ function showView(view){
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
   screenOn.want(view === 'player');
-  if (view === 'home'){ closeReview(); rec.clear(); me.stop(); }
+  if (view === 'home'){ closeReview(); recCountdownUntil = 0; recNote = ''; rec.clear(); me.stop(); }
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();
@@ -1070,10 +1067,11 @@ function showView(view){
 
 function setTab(name){
   tab = name;
-  $('#tabBeats').setAttribute('aria-selected', name === 'beats'); $('#tabPractice').setAttribute('aria-selected', name === 'practice');
-  $('#panelBeats').hidden = name !== 'beats'; $('#panelPractice').hidden = name !== 'practice';
+  for (const [t, panel] of [['beats', 'Beats'], ['practice', 'Practice'], ['record', 'Record']]){
+    $('#tab' + panel).setAttribute('aria-selected', name === t); $('#panel' + panel).hidden = name !== t;
+  }
   if (name === 'beats' && !hasGrid() && rate === 1) setRate(0.5);   // half speed makes tapping the beat easier
-  if (name === 'practice') updatePracticeUI(); else updateBeatsUI();
+  if (name === 'practice') updatePracticeUI(); else if (name === 'record') syncRecordUI(); else updateBeatsUI();
   showPauseCard();
 }
 
@@ -1133,6 +1131,7 @@ function wirePlayerControls(){
 
   $('#tabBeats').addEventListener('click', () => setTab('beats'));
   $('#tabPractice').addEventListener('click', () => setTab('practice'));
+  $('#tabRecord').addEventListener('click', () => setTab('record'));
   $('#toPractice').addEventListener('click', () => setTab('practice'));
 
   document.addEventListener('fullscreenchange', onFullscreenChange);
@@ -1322,7 +1321,8 @@ const me = selfView({box: $('#meBox'), video: $('#meVideo'), log, onChange: sync
 
 /** The 📷 Me button, and a note when the camera couldn't start. */
 function syncMe(){
-  if (!me.on && rec.recording){ if (rec.manual) stopRecording(); else rec.discard(); }   // keep what ⏺ recorded so far
+  if (!me.on && rec.recording) stopRecording();   // keep what was recorded so far
+  syncRecordUI();
   $('#meBtn').setAttribute('aria-pressed', me.on);
   const note = me.problem ? ME_PROBLEMS[me.problem] : '';
   $('#meNote').textContent = note; $('#meNote').hidden = !note;
@@ -1336,107 +1336,130 @@ function wireMe(){
   placeMe(settings.meCorner);
   $('#meBtn').addEventListener('click', toggleMe);
   $('#meClose').addEventListener('click', () => me.stop());
-  $('#meRec').addEventListener('click', toggleRecord);
-  $('#meWatch').addEventListener('click', watchBack);
   dragToCorners($('#meBox'), $('#stage'), corner => {
     settings.meCorner = corner; save(); placeMe(corner);
     log('camera', 'moved to the ' + corner + ' corner');
   });
 }
 
-/* ---------- recording yourself and watching it back (see recorder.js) ----------
-   With 📷 Me on, ⏺ on the camera window records you over one piece of the video, played straight through: it plays the
-   video if it was paused, and ends at ■ or when the video pauses, jumps or changes speed (or after 10 minutes). Each
-   practice run is also recorded by itself. "▶ Watch back" shows the latest recording next to the video: the video on
-   the left half of the picture, from the same place at the same speed, your recording on the right, in step. The
-   recording follows the video: it plays and pauses with it, and is put back in step whenever it drifts. */
+/* ---------- recording yourself and watching it back (the Record tab, see recorder.js) ----------
+   With the camera on, ⏺ Record counts down 3 seconds (time to get into place), then plays the video from where it is
+   and records you until ■ Stop, or until the video pauses, jumps or changes speed (or after 10 minutes): one piece of
+   the video, start to end. "▶ Watch back" shows it next to the video: the video on the left half of the picture, from
+   the same place at the same speed, your recording on the right, in step. The recording follows the video: it plays
+   and pauses with it, and is nudged back in step when it drifts. */
 
-const rec = runRecorder(log, syncRec);
+const rec = runRecorder(log, syncRecordUI);
 const JUMP_SETTLE_MS = 700;           // after a jump the player reports its old position for a moment (practice.js SETTLE_MS)
-const MAX_RECORDING_S = 10 * 60;      // ⏺ stops by itself after this: recordings are kept in memory
+const MAX_RECORDING_S = 10 * 60;      // recordings stop by themselves after this: they are kept in memory
+const COUNTDOWN_MS = 3000;            // after ⏺ Record: time to put the phone down and get into place
 let recSettleUntil = 0;               // don't note the video as playing before this (it just jumped or started)
+let recCountdownUntil = 0;            // when the countdown ends and the video plays (performance.now()); 0 = none
+let recNote = '';                     // why the last recording kept nothing, or stopped by itself
 let reviewing = false;
 let reviewSettleUntil = 0;
+let takeSeekUntil = 0;                // the recording is jumping: don't check its place again before this
 
-/** The camera window's buttons and badge, and the Watch back buttons. */
-function syncRec(){
-  const manual = rec.manual;
-  $('#meBox').classList.toggle('recording', rec.recording);
-  $('#meRec').hidden = !canRecord();
-  $('#meRec').textContent = manual ? '■' : '⏺';
-  $('#meRec').setAttribute('aria-pressed', manual);
-  $('#meRec').setAttribute('aria-label', manual ? 'Stop recording' : 'Record yourself');
-  const canWatch = !!rec.take && !manual && !reviewing;
-  $('#meWatch').hidden = !canWatch; $('#sWatch').hidden = !canWatch;
+const recCountdownLeft = () => recCountdownUntil ? Math.max(1, Math.ceil((recCountdownUntil - performance.now()) / 1000)) : 0;
+const pieceLabel = take => fmtTime(take.videoStart) + '–' + fmtTime(take.videoEnd);
+
+/** The Record tab's status and buttons, and the REC badge on the camera window. */
+function syncRecordUI(){
+  const recording = rec.recording, take = rec.take;
+  $('#meBox').classList.toggle('recording', recording);
+  $('#rCam').textContent = me.on ? '📷 Turn camera off' : '📷 Turn camera on';
+  $('#rRec').disabled = !me.on || !canRecord() || reviewing;
+  $('#rRec').textContent = recording ? '■ Stop' : '⏺ Record';
+  $('#rRec').setAttribute('aria-pressed', recording);
+  $('#rWatch').hidden = !take || recording || reviewing;
+  const status = !canRecord() ? "This browser can't record video."
+    : recCountdownUntil ? 'Get ready… ' + recCountdownLeft()
+    : recording ? '● Recording ' + fmtTime(rec.seconds)
+    : recNote || (take ? 'Recorded ' + pieceLabel(take) + ' of the video. Watch it back, or record again.'
+    : me.on ? 'Ready. Press ⏺ Record, then get into place.' : 'Turn on your camera to start.');
+  const el = $('#rStatus');
+  if (el.textContent !== status) el.textContent = status;
+  el.classList.toggle('on', recording);
 }
 
-function recordRun(run){
-  if (rec.manual) return;   // ⏺ is recording already: it records this run
-  if (!me.on || reviewing) return rec.discard();
-  rec.start(me.stream, {label: stepLabel(run.step) + ' at ' + rateLabel(run.step.rate)});
-}
 function toggleRecord(){
-  if (rec.manual) return stopRecording();
+  if (rec.recording) return stopRecording();
   if (!me.on || reviewing) return;
-  rec.discard();   // a practice run being recorded: ⏺ takes over
-  $('#meNote').hidden = true;
-  if (!rec.start(me.stream, {label: '', manual: true})) return;
+  endSession('recording yourself');
+  recNote = '';
+  if (playing) pause();
+  if (!rec.start(me.stream)) return;
   countEvent('record');
-  if (!playing && !sessionRunning()) play();   // in practice, it records when the run plays
+  recCountdownUntil = performance.now() + COUNTDOWN_MS;
+  syncRecordUI();
 }
 async function stopRecording(why){
   const before = rec.take;
+  recCountdownUntil = 0;
   if (why) log('camera', 'recording stopped: ' + why);
   const take = await rec.finish();
-  const note = why === 'time' ? 'Recordings stop after 10 minutes. Press ⏺ to record again.'
-    : take === before ? 'Nothing was recorded to watch back: the video has to play while recording.' : '';
-  $('#meNote').textContent = note; $('#meNote').hidden = !note;
+  recNote = why === 'time' ? 'Recordings stop after 10 minutes.' + (take !== before ? ' Recorded ' + pieceLabel(take) + ' of the video.' : '')
+    : take === before ? 'Nothing was recorded: the video has to play while you record.' : '';
+  syncRecordUI();
 }
-/** Every frame: note where the recorded piece of video starts, and stop a long recording. */
+/** Every frame while recording: play after the countdown, note where the piece of video starts, stop a long one. */
 function followRecording(t){
   if (!rec.recording) return;
-  if (playing && !adPlaying && !reviewing && performance.now() > recSettleUntil) rec.playing(t, rate);
-  if (rec.manual && rec.seconds > MAX_RECORDING_S) stopRecording('time');
+  const now = performance.now();
+  if (recCountdownUntil && now >= recCountdownUntil){ recCountdownUntil = 0; play(); }
+  if (playing && !adPlaying && !reviewing && now > recSettleUntil) rec.playing(t, rate);
+  if (rec.started) recCountdownUntil = 0;   // (you pressed play yourself before the end)
+  if (rec.seconds > MAX_RECORDING_S) stopRecording('time');
+  syncRecordUI();
 }
 
-async function watchBack(){
-  if (rec.manual) await stopRecording();
+function watchBack(){
   const take = rec.take;
-  if (!take || !playerReady || reviewing) return;
-  endSession('watching a run back');
+  if (!take || !playerReady || reviewing || rec.recording) return;
+  endSession('watching yourself back');
   reviewing = true;
   $('#stage').classList.add('review');
   $('#takeVideo').src = take.url; $('#takeVideo').hidden = false;
-  const label = take.label || fmtTime(take.videoStart) + '–' + fmtTime(take.videoEnd);
-  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = 'You: ' + label;
-  syncRec(); layoutVideo();
-  log('camera', 'watching back ' + (take.label || 'your recording'));
+  $('#reviewBar').hidden = false; $('#reviewLbl').textContent = 'You: ' + pieceLabel(take);
+  syncRecordUI(); layoutVideo();
+  log('camera', 'watching back');
   countEvent('watch-back');
   replayReview();
 }
-/** Play the recorded piece again: the video from where it started, at its speed, and the recording from there. */
+/** Move the recording to time t (once it has loaded enough to know its length), and leave it be while it gets there. */
+function seekTake(t){
+  const v = $('#takeVideo'), go = () => { v.currentTime = Math.max(0, t); };
+  takeSeekUntil = performance.now() + 1000;
+  if (v.readyState >= 1) go(); else v.addEventListener('loadedmetadata', go, {once: true});
+}
+/** Play the piece again: the video from where it started, at its speed, and the recording from there. */
 function replayReview(){
   const take = rec.take;
   if (!take) return closeReview();
   const v = $('#takeVideo');
-  v.pause(); v.currentTime = take.recordingStart;
+  v.pause(); v.playbackRate = 1; seekTake(take.recordingStart);
   reviewSettleUntil = performance.now() + JUMP_SETTLE_MS;
   setRate(take.rate); seek(take.videoStart); play();
 }
-/** The video started or stopped: the recording does the same, from the matching moment. */
+/** The video started or stopped: the recording does the same (jumping only if it is well out of step). */
 function followWithTake(){
   const v = $('#takeVideo'), take = rec.take;
   if (!take) return;
-  if (playing){ v.currentTime = Math.max(0, takeTimeAt(take, currentTime())); v.play().catch(() => {}); }
-  else v.pause();
+  if (!playing){ v.pause(); return; }
+  const want = takeTimeAt(take, currentTime());
+  if (performance.now() >= reviewSettleUntil && Math.abs(want - v.currentTime) > 0.3) seekTake(want);
+  v.play().catch(() => {});
 }
-/** Every frame while watching back: stop at the end of the piece, and keep the recording in step. */
+/** Every frame while watching back: stop at the end of the piece, and keep the recording in step (takeSync). */
 function followReview(t){
   const v = $('#takeVideo'), take = rec.take;
   if (!take || !playing || performance.now() < reviewSettleUntil) return;
   if (t >= take.videoEnd){ pause(); v.pause(); return; }
-  const want = takeTimeAt(take, t);
-  if (Math.abs(v.currentTime - want) > 0.25) v.currentTime = Math.max(0, want);
+  if (v.paused) v.play().catch(() => {});
+  if (v.seeking || performance.now() < takeSeekUntil) return;
+  const want = takeTimeAt(take, t), sync = takeSync(want - v.currentTime);
+  if (sync.seek) seekTake(want);
+  else if (Math.abs(v.playbackRate - sync.rate) > 0.01) v.playbackRate = sync.rate;
 }
 function closeReview(){
   if (!reviewing) return;
@@ -1444,11 +1467,13 @@ function closeReview(){
   const v = $('#takeVideo');
   v.pause(); v.removeAttribute('src'); v.load(); v.hidden = true;
   $('#stage').classList.remove('review'); $('#reviewBar').hidden = true;
-  pause(); layoutVideo(); syncRec(); updateSessionUI();
+  v.playbackRate = 1; pause(); layoutVideo(); syncRecordUI(); updateSessionUI();
 }
-function wireReview(){
-  syncRec();
-  $('#sWatch').addEventListener('click', watchBack);
+function wireRecord(){
+  syncRecordUI();
+  $('#rCam').addEventListener('click', toggleMe);
+  $('#rRec').addEventListener('click', toggleRecord);
+  $('#rWatch').addEventListener('click', watchBack);
   $('#reviewReplay').addEventListener('click', replayReview);
   $('#reviewClose').addEventListener('click', closeReview);
 }
@@ -1589,7 +1614,7 @@ function wireShare(){
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireReview(); wireZoom();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireRecord(); wireZoom();
 setupInstall(log);
 setupAnalytics(log); setupTips();
 renderSteps(); syncControls(); renderHome(); checkShareLink();

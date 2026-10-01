@@ -8,7 +8,7 @@ import {Practice} from './practice.js';
 import {migrate, defaultSettings, SETTINGS_VERSION, presets, presetOf, pickPlan, PLAN_KEYS} from './storage.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
-import {pickMimeType, takeTimeAt, pieceUntil} from './recorder.js';
+import {pickMimeType, takeTimeAt, pieceUntil, takeSync} from './recorder.js';
 import {NO_ZOOM, clampZoom, zoomAround, panBy, zoomTransform, MAX_ZOOM} from './zoom.js';
 
 const results = [];
@@ -414,6 +414,14 @@ test('recording: the piece of video recorded ends where the recording stopped, a
   eq(pieceUntil({videoStart: 10, recordingStart: 2, rate: 1}, 5), {videoStart: 10, recordingStart: 2, rate: 1, videoEnd: 13});
   eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 0.5}, 12).videoEnd, 42, '4 s at half speed is 2 s of video');
   eq(pieceUntil({videoStart: 40, recordingStart: 8, rate: 1}, 8.1), null, 'too short to keep');
+});
+test('watching back: the recording is nudged back in step, and only jumps when far out', () => {
+  eq(takeSync(0.02), {seek: false, rate: 1}, 'in step');
+  eq(takeSync(0.2).rate, 1.1, 'behind: a little faster');
+  eq(takeSync(-0.2).rate, 0.9, 'ahead: a little slower');
+  eq(takeSync(0.9).rate, 1.15, 'never much faster');
+  eq(takeSync(1.5), {seek: true});
+  eq(takeSync(-3), {seek: true});
 });
 
 /* ---- zooming in ---- */

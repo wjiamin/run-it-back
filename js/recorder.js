@@ -1,22 +1,23 @@
-/* Recording yourself from the camera (📷 Me), to watch back side by side with the video.
+/* Recording yourself from the camera (the Record tab), to watch back side by side with the video.
 
    A recording is one piece of the video, played straight through: it has a clear start and end, so watching it back is
-   easy to follow. It is made in one of two ways: ⏺ on the camera window, or automatically for each practice run. It
-   starts when the video plays, and ends at ■ or as soon as the video stops playing straight on (a pause, a jump, a
-   speed change, an ad). Only the latest recording is kept, in memory: it is never saved on the phone or sent anywhere,
-   and it is gone when a new one is made or the video is closed.
+   easy to follow. It starts when the video plays, and ends at ■ Stop or as soon as the video stops playing straight on
+   (a pause, a jump, a speed change, an ad). Only the latest recording is kept, in memory: it is never saved on the phone
+   or sent anywhere, and it is gone when a new one is made or the video is closed.
 
    Usage:
      const rec = runRecorder(log, onChange);           onChange(): the recording started, ended or was thrown away
-     rec.start(stream, {label, manual})                 start recording (manual: from ⏺, not a practice run)
+     rec.start(stream)                                  start recording
      rec.playing(t, rate)                               the video is playing at video time t: the piece starts here if it
                                                         hasn't yet (call it any time while playing; only the first counts)
      await rec.stopped()                                the video paused, jumped or changed speed: the recording ends
                                                         there, if its piece had started
      await rec.finish()                                 stop now and keep it as the take (if the video played at all)
      rec.discard(), rec.clear()                         throw away the one being made / also forget the take
-     rec.take          {url, label, videoStart, videoEnd, recordingStart, rate} or null  (label '' for ⏺)
-     rec.recording, rec.manual, rec.seconds            being made? from ⏺? how long so far */
+     rec.take          {url, videoStart, videoEnd, recordingStart, rate} or null
+     rec.recording, rec.started, rec.seconds           being made? has its piece started? how long so far
+
+   Watching back, takeTimeAt() says where the recording should be, and takeSync() how to get it there smoothly. */
 
 /** The first recording format the browser can make: MP4 on iPhones, WebM elsewhere. */
 export function pickMimeType(isSupported){
@@ -27,6 +28,18 @@ export const canRecord = () => typeof MediaRecorder !== 'undefined';
 
 /** Where the recording is when the video is at time t (the recording runs in real time, the video at `rate`). */
 export const takeTimeAt = (take, t) => take.recordingStart + (t - take.videoStart) / take.rate;
+
+/**
+ * Keeping the recording in step while watching back, when it is `behind` seconds behind where it should be (negative:
+ * ahead). Far out: jump (seek) to the right place. Otherwise play it a little faster or slower until it catches up:
+ * jumping again and again makes phones stall on the same few frames.
+ * Returns {seek: true} or {seek: false, rate} (the recording's playback rate; 1 = real time).
+ */
+export function takeSync(behind){
+  if (Math.abs(behind) > 1) return {seek: true};
+  if (Math.abs(behind) < 0.05) return {seek: false, rate: 1};
+  return {seek: false, rate: Math.min(1.15, Math.max(0.85, 1 + behind / 2))};
+}
 
 /** Pieces shorter than this (seconds of recording) aren't kept: nothing really played. */
 const MIN_PIECE = 0.3;
@@ -41,7 +54,7 @@ export function pieceUntil(start, seconds){
 }
 
 export function runRecorder(log, onChange = () => {}){
-  let current = null;       // the recording being made: {recorder, chunks, stopped (a promise), details, start}
+  let current = null;       // the recording being made: {recorder, chunks, stopped (a promise), start}
   let startedAt = 0;        // performance.now() when it really began
   let take = null;
 
@@ -57,10 +70,10 @@ export function runRecorder(log, onChange = () => {}){
   const rec = {
     get take(){ return take; },
     get recording(){ return !!current; },
-    get manual(){ return !!current && !!current.details.manual; },
+    get started(){ return !!current && !!current.start; },
     get seconds(){ return current ? seconds() : 0; },
 
-    start(stream, details){
+    start(stream){
       stopCurrent();
       if (!canRecord() || !stream) return false;
       let recorder;
@@ -73,10 +86,10 @@ export function runRecorder(log, onChange = () => {}){
       const stopped = new Promise(resolve => recorder.addEventListener('stop', resolve, {once: true}));
       recorder.addEventListener('dataavailable', e => { if (e.data && e.data.size) chunks.push(e.data); });
       recorder.addEventListener('start', () => { if (current && current.recorder === recorder) startedAt = performance.now(); });
-      current = {recorder, chunks, stopped, details, start: null};
+      current = {recorder, chunks, stopped, start: null};
       startedAt = 0;
       recorder.start();
-      if (details.manual) log('camera', 'recording');
+      log('camera', 'recording');
       onChange();
       return true;
     },
@@ -87,9 +100,9 @@ export function runRecorder(log, onChange = () => {}){
     async finish(){
       if (!current) return take;
       const piece = current.start && pieceUntil(current.start, seconds());
-      const {recorder, chunks, stopped, details} = stopCurrent();
+      const {recorder, chunks, stopped} = stopCurrent();
       if (!piece){
-        if (details.manual) log('camera', 'recording stopped: the video didn\'t play, so there is nothing to compare');
+        log('camera', 'recording stopped: the video didn\'t play, so there is nothing to compare');
         onChange();
         return take;
       }
@@ -97,8 +110,8 @@ export function runRecorder(log, onChange = () => {}){
       const blob = new Blob(chunks, {type: recorder.mimeType || 'video/webm'});
       if (blob.size){
         if (take) URL.revokeObjectURL(take.url);
-        take = {url: URL.createObjectURL(blob), label: details.label || '', ...piece};
-        log('camera', 'recorded ' + (details.label || 'your recording') + ': ' + (piece.videoEnd - piece.videoStart).toFixed(1) +
+        take = {url: URL.createObjectURL(blob), ...piece};
+        log('camera', 'recorded ' + (piece.videoEnd - piece.videoStart).toFixed(1) +
           ' s of video (' + Math.round(blob.size / 1024) + ' KB)');
       }
       onChange();

@@ -153,7 +153,7 @@
           <div id="reviewBar" class="reviewBar" hidden>
             <span id="reviewLbl" class="reviewLbl"></span>
             <button id="reviewReplay" class="btn sm">↺ Replay</button>
-            <button id="reviewClose" class="btn sm primary">Back to practice</button>
+            <button id="reviewClose" class="btn sm primary">Done</button>
           </div>
           <div class="shield" id="shield" aria-hidden="true"></div>
           <button id="pauseCard" class="pauseCard" hidden><span class="pcHead" id="pcHead"></span><span class="pcAct" id="pcAct"></span></button>
@@ -166,11 +166,6 @@
             <video id="meVideo" playsinline muted autoplay></video>
             <button id="meClose" class="meClose" aria-label="Turn the camera off">✕</button>
             <span class="meRecBadge" aria-hidden="true">● REC</span>
-            <div class="meActs">
-              <button id="meWatch" class="meAct" aria-label="Watch back your recording" title="Watch back" hidden>▶</button>
-              <button id="meRec" class="meAct meRec" aria-pressed="false" aria-label="Record yourself"
-                title="Record yourself. It plays the video and records until you press ■ or pause. It stays on this phone and is gone when you close the video.">⏺</button>
-            </div>
           </div>
           <div class="fsCount" id="fsCount"><div class="fsStat" id="fsStat"></div></div>
           <div class="fsBar" id="fsBar"></div>
@@ -222,6 +217,7 @@
         <div class="tabs" role="tablist">
           <button id="tabBeats" role="tab" aria-selected="true">1 · Beats</button>
           <button id="tabPractice" role="tab" aria-selected="false">2 · Practice</button>
+          <button id="tabRecord" role="tab" aria-selected="false">📷 Record</button>
         </div>
 
         <!-- BEATS -->
@@ -307,7 +303,6 @@
               <div class="sNav2">
                 <button id="sFromStart" class="btn sm" hidden>Start from the beginning</button>
                 <button id="sFull" class="btn sm">Run the whole section only</button>
-                <button id="sWatch" class="btn sm" hidden>▶ Watch back</button>
               </div>
               <div class="chips" id="chips"></div>
             </div>
@@ -385,6 +380,24 @@
             </div>
               </details>
             </div>
+          </div>
+        </div>
+
+        <!-- RECORD -->
+        <div id="panelRecord" hidden>
+          <div class="card recCard">
+            <h2>Record yourself</h2>
+            <p class="muted small" style="margin:0 0 12px">Dance along to the video while your camera records you, then watch
+              yourself next to the dancers to see what to fix. Prop your phone up so you're in the picture.</p>
+            <div class="recStatus" id="rStatus" role="status"></div>
+            <div class="sBtns">
+              <button id="rCam" class="btn">📷 Turn camera on</button>
+              <button id="rRec" class="btn primary" aria-pressed="false" disabled>⏺ Record</button>
+              <button id="rWatch" class="btn" hidden>▶ Watch back</button>
+            </div>
+            <p class="muted small" style="margin:12px 0 0">⏺ Record counts down 3 seconds, then plays the video from where it
+              is, at the speed you've chosen. It stops when you press ■ Stop or pause the video. To start somewhere else,
+              move the video there first. Only your latest recording is kept, on this phone, until you close the video.</p>
           </div>
         </div>
       </div>
