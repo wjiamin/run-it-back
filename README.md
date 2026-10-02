@@ -32,6 +32,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `sitemap.xml` | The list of pages for search engines (submit it in Google Search Console). Add new pages to it |
 | `icons/share.png`, `tools/share-image.html` | The link-preview picture, and the page it is drawn from (how to redraw it is at the top of that file) |
 | `styles.css` | All the styling |
+| `fan.css`, `fonts/` | The new look being tried out alongside the classic one: restyles the same page (fonts: Unbounded and Instrument Sans, SIL Open Font License) |
 | `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, keeping the page up to date, and the Share panel and shared-practice card |
 | `js/beats.js` | Working out the tempo, from taps or from two marked 1s |
 | `js/grid.js` | The beat grid: beats, counts, blocks and the trimmed range |
@@ -41,6 +42,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/storage.js` | Saving on the device, upgrading older saves, the default plan and presets, and each video's own plan |
 | `js/log.js` | The private debug log behind the Log button |
 | `js/site.js` | Visit counts (GoatCounter) and the tip link, switched on by the two settings at its top |
+| `js/look.js` | Chooses the classic or the new look before the page is drawn: the footer switch, or `?look=fan` / `?look=classic` in a link |
 | `js/ads.js` | Display ads (Google AdSense) on the home page and the guides, off until set up (see Ads below) |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
 | `js/camera.js` | Your camera (📷 Me) in a corner of the video, mirrored: starting and stopping it, and dragging it to another corner |

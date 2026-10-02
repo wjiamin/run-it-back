@@ -11,6 +11,7 @@
      pwa.js      installing to the home screen and working offline
      site.js     visit counts and the tip link
      ads.js      display ads on the home page (off until set up)
+     look.js     (a plain script in <head>) the classic look or the new one, fan.css
      wakelock.js keeping the screen on while a video is open
      camera.js   your camera in a corner of the video ("📷 Me")
      recorder.js recording each run from the camera, to watch back side by side
@@ -42,7 +43,7 @@ import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-10-02-a';
+const APP_VERSION = '2026-10-02-b';
 
 /* ---------- state ---------- */
 
@@ -1480,6 +1481,23 @@ function wireRecord(){
   $('#reviewClose').addEventListener('click', closeReview);
 }
 
+/* ---------- the look (see js/look.js and fan.css) ----------
+   The footer switches between the classic look and the new one being tried out. look.js has already applied the
+   chosen look before the page was drawn; this is only the switch. */
+
+const looks = () => window.runItBackLook;   // missing if look.js didn't load: then there is no switch
+function syncLookBtn(){ $('#lookBtn').textContent = looks().get() === 'fan' ? 'Back to the classic look' : 'Try the new look (beta)'; }
+function wireLook(){
+  if (!looks()){ $('#lookBtn').hidden = true; return; }
+  syncLookBtn();
+  $('#lookBtn').addEventListener('click', () => {
+    const next = looks().get() === 'fan' ? 'classic' : 'fan';
+    looks().set(next); syncLookBtn();
+    log('page', 'look: ' + next);
+    countEvent('look-' + next);
+  });
+}
+
 /* ---------- zooming in (see zoom.js) ----------
    To follow one member of a group: pinch, Ctrl + scroll or 🔍 to zoom, drag to move. The zoom is kept per video
    (cover.zoom), since your member stands somewhere different in each one. */
@@ -1616,12 +1634,12 @@ function wireShare(){
 /* ---------- start ---------- */
 
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
-wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireRecord(); wireZoom();
+wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireRecord(); wireZoom(); wireLook();
 setupInstall(log);
 setupAnalytics(log); setupTips(); setupAds(log);
 renderSteps(); syncControls(); renderHome(); checkShareLink();
 requestAnimationFrame(tick);
-log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
+log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers, ' + (looks() ? looks().get() : 'classic') + ' look');
 
 // for testing from the browser console
 window.__app = {getPlayer: () => player, getTake: () => rec.take, recording: () => rec.recording};

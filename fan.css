@@ -1,0 +1,115 @@
+/* The "fan" look (see js/look.js): bold colour, thick outlines with hard shadows, sticker labels and photocard covers.
+   It only restyles the page that styles.css draws, so every feature works the same in both looks. Everything here is
+   under [data-look=fan], so switching back to the classic look takes effect at once.
+   Fonts: Unbounded (headings) and Instrument Sans (text), both SIL Open Font License, served from fonts/. */
+
+@font-face{font-family:'Unbounded';font-weight:700 800;font-display:swap;src:url(fonts/unbounded-latin.woff2) format('woff2')}
+@font-face{font-family:'Instrument Sans';font-weight:400 700;font-display:swap;src:url(fonts/instrument-sans-latin.woff2) format('woff2')}
+
+[data-look=fan]{
+  --bg:#e9e3ff;--panel:#fff;--panel2:#f4f0ff;--line:#1a1033;--text:#1a1033;--muted:#4e4470;
+  --accent:#c2185b;--accent-ink:#fff;--ok:#1e7a3c;--shadow:none;
+  --ink:#1a1033;--lime:#c6f432;--lime-ink:#1a1033;
+  --display:'Unbounded',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  [data-look=fan]{
+    --bg:#150d2b;--panel:#22183f;--panel2:#2c2150;--line:#e9e3ff;--text:#f3eeff;--muted:#c3b8e6;
+    --accent:#ff5fa2;--accent-ink:#1a1033;--ok:#5fd68a;
+    --ink:#e9e3ff;
+  }
+}
+
+[data-look=fan] body{font-family:'Instrument Sans',system-ui,sans-serif}
+[data-look=fan] :is(.heroTitle,.card h2,.top h1,.sess .title,.doc h1,.doc h2,.bpm,.count .num,.cue,.chip b,.pauseCard .pcAct){
+  font-family:var(--display);letter-spacing:-.01em}
+
+/* outlines and hard shadows instead of soft cards */
+[data-look=fan] .card{border:2px solid var(--ink);border-radius:18px;box-shadow:none}
+[data-look=fan] :is(.btn,.ghost,.ico){border:2px solid var(--ink);border-radius:12px;font-weight:600}
+[data-look=fan] .btn{background:var(--panel)}
+[data-look=fan] :is(.btn.primary,.btn.tipBtn){background:var(--accent);color:var(--accent-ink);box-shadow:3px 3px 0 var(--ink)}
+[data-look=fan] :is(.btn.primary,.btn.tipBtn):active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+[data-look=fan] .btn[aria-pressed=true]{background:var(--lime);color:var(--lime-ink);border-color:var(--ink)}
+[data-look=fan] .btn:disabled{background:transparent;box-shadow:none}
+[data-look=fan] .shareBtn{background:var(--lime);color:var(--lime-ink);border:2px solid var(--ink);border-radius:12px}
+[data-look=fan] :is(input[type=text],input[type=number]){border:2px solid var(--ink);border-radius:12px;background:var(--panel)}
+[data-look=fan] .seg{border:2px solid var(--ink);border-radius:12px}
+[data-look=fan] .seg button{border-right:2px solid var(--ink);background:var(--panel);font-weight:600}
+[data-look=fan] .seg button:last-child{border-right:0}
+[data-look=fan] .seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+[data-look=fan] .switchRow,[data-look=fan] .dbgBox,[data-look=fan] .tipBox{border:2px solid var(--ink)}
+[data-look=fan] .tipCard{border-color:var(--ink);background:var(--lime);color:var(--lime-ink)}
+[data-look=fan] .tipCard .muted{color:var(--lime-ink)}
+
+/* home: a left-aligned headline, the paste box as a white slab, and sticker labels instead of the count strip */
+[data-look=fan] .hero{text-align:left;padding-top:26px}
+[data-look=fan] .hero::before{display:none}
+[data-look=fan] .heroTitle{font-weight:800;font-size:clamp(30px,8.4vw,48px);line-height:1.04;margin:0 0 12px;max-width:16ch}
+[data-look=fan] .heroTitle .hl{color:var(--accent);white-space:normal}
+[data-look=fan] .heroSub{margin:0 0 18px;color:var(--muted)}
+[data-look=fan] .heroForm{margin:0;max-width:560px}
+[data-look=fan] .heroForm .row{background:var(--panel);border:2px solid var(--ink);border-radius:18px;padding:8px;box-shadow:4px 4px 0 var(--ink)}
+[data-look=fan] .heroForm input[type=text]{border:0;background:transparent;min-height:46px}
+[data-look=fan] .heroForm .btn.primary{font-family:var(--display);font-size:15px;box-shadow:none}
+[data-look=fan] .heroCounts{display:none}
+[data-look=fan] .heroTags{justify-content:flex-start;gap:8px;margin-top:18px}
+[data-look=fan] .heroTags li{border:2px solid var(--ink);color:var(--ink);background:var(--panel);font-weight:700;padding:5px 12px;transform:rotate(2deg)}
+[data-look=fan] .heroTags li:nth-child(3n+1){background:var(--lime);color:var(--lime-ink);transform:rotate(-3deg)}
+[data-look=fan] .heroTags li:nth-child(3n+3){background:var(--accent);color:var(--accent-ink);transform:rotate(-1deg)}
+
+/* My covers: photocards, two to a row; the colour strip under the picture alternates */
+[data-look=fan] .recent{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+[data-look=fan] .recent li,[data-look=fan] .recent li:first-child{position:relative;flex-direction:column;align-items:stretch;gap:0;
+  border:2px solid var(--ink);border-radius:16px;overflow:hidden;background:var(--panel)}
+[data-look=fan] .recent .open{flex-direction:column;align-items:stretch;gap:0;padding:0}
+[data-look=fan] .recent .thumb{width:100%;border-radius:0;border-bottom:2px solid var(--ink)}
+[data-look=fan] .recent .meta{padding:8px 10px 10px;flex:1}
+[data-look=fan] .recent .t{font-family:var(--display);font-size:14px;line-height:1.2;white-space:normal;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+[data-look=fan] .recent li:nth-child(3n+1) .meta{background:var(--lime);color:var(--lime-ink)}
+[data-look=fan] .recent li:nth-child(3n+1) .muted{color:var(--lime-ink)}
+[data-look=fan] .recent li:nth-child(3n+2) .meta{background:var(--ink);color:var(--bg)}
+[data-look=fan] .recent li:nth-child(3n+2) .muted{color:var(--bg)}
+[data-look=fan] .recent .ghost{position:absolute;top:6px;right:6px;min-width:34px;height:34px;padding:0;background:var(--panel);border-radius:50%}
+
+/* How it works: numbered stickers instead of emoji */
+[data-look=fan] .how{counter-reset:how}
+[data-look=fan] .how li{counter-increment:how}
+[data-look=fan] .howIco{font-size:0;border:2px solid var(--ink);border-radius:50%;background:var(--lime)}
+[data-look=fan] .howIco::before{content:counter(how);font:800 17px var(--display);color:var(--lime-ink)}
+[data-look=fan] .how li:nth-child(2) .howIco{background:var(--accent)}
+[data-look=fan] .how li:nth-child(2) .howIco::before{color:var(--accent-ink)}
+[data-look=fan] .how li:nth-child(3) .howIco{background:var(--panel)}
+[data-look=fan] .how li:nth-child(3) .howIco::before{color:var(--text)}
+
+[data-look=fan] .guideCards a{background:var(--panel);border:2px solid var(--ink);border-radius:14px}
+[data-look=fan] .guideCards a b{font-family:var(--display);font-size:13px;line-height:1.25}
+[data-look=fan] .guideCards a:hover{box-shadow:3px 3px 0 var(--ink);border-color:var(--ink)}
+
+/* player: chunky tabs, block chips and count bars; the count-in number is a tilted sticker */
+[data-look=fan] .stage{border-radius:18px}
+@media (min-width:900px) and (min-height:600px){ [data-look=fan] .stage:not(.fs){border:2px solid var(--ink)} }
+[data-look=fan] .tabs{gap:8px}
+[data-look=fan] .tabs button{border:2px solid var(--ink);border-radius:14px;min-height:48px;background:var(--panel)}
+[data-look=fan] .tabs button[aria-selected=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+[data-look=fan] .count .segs i{border:2px solid var(--ink);border-radius:4px;height:12px;background:var(--panel)}
+[data-look=fan] .count .segs i.on{background:var(--accent);border-color:var(--ink)}
+[data-look=fan] .count .segs i.one.on{background:var(--lime);border-color:var(--ink)}
+[data-look=fan] .chip{border:2px solid var(--ink);border-radius:12px;background:var(--panel)}
+[data-look=fan] .chip.playing{background:var(--ink);color:var(--bg);border-color:var(--ink);box-shadow:3px 3px 0 var(--accent)}
+[data-look=fan] .chip.playing span{color:var(--bg)}
+[data-look=fan] .chip.conn{border:2px dashed var(--accent)}
+[data-look=fan] .prog{height:10px;border:2px solid var(--ink);border-radius:6px;background:var(--panel)}
+[data-look=fan] .tTrack{border:2px solid var(--ink)}
+[data-look=fan] .tap{border:2px solid var(--ink);box-shadow:4px 4px 0 var(--ink);background:var(--panel)}
+[data-look=fan] .tap:active,[data-look=fan] .tap.hit{background:var(--accent);color:var(--accent-ink);box-shadow:1px 1px 0 var(--ink)}
+[data-look=fan] .planMore summary{color:var(--accent)}
+[data-look=fan] .cue{display:flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;
+  background:var(--accent);color:#fff;border:2px solid #1a1033;text-shadow:none;transform:rotate(-6deg);font-size:clamp(30px,7vw,72px)}
+[data-look=fan] .pauseCard{background:#1a1033;border:2px solid #fff;box-shadow:5px 5px 0 #c2185b}
+[data-look=fan] .pauseCard .pcAct{color:#c6f432}
+
+/* the footers and the text pages */
+[data-look=fan] .siteFoot a,[data-look=fan] .doc a,[data-look=fan] .tipLink,[data-look=fan] .linkBtn{color:var(--accent)}
+[data-look=fan] .doc h1{font-size:26px;line-height:1.15}
