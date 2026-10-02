@@ -47,6 +47,15 @@
   <h2>Tips</h2>
   <p>The tip link opens a separate site that handles the payment under its own privacy policy. Nothing about your practice is sent to it.</p>
 
+  <section data-ads hidden>
+  <h2>Ads</h2>
+  <p>The home page and the guides show ads from Google AdSense. Never the video or your practice. Google may use cookies
+  to show and measure ads, and to show ads based on your interests where that's allowed. In the EEA, the UK and
+  Switzerland you're asked first. Google's own policy explains how it uses this information:
+  <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how Google uses information from sites
+  that use its services</a>. Nothing about your covers or practice is sent with the ads.</p>
+  </section>
+
   <h2>YouTube</h2>
   <p>Videos play through YouTube's embedded player, and the pictures in My covers are YouTube's own video thumbnails. So YouTube receives the usual information any embedded video gets
   (such as your IP address and the video you're watching) and may set its own cookies. See
@@ -58,6 +67,6 @@
   <h2>Changes</h2>
   <p>If this ever changes (for example, if we add ads), this page will say so first, with the date updated above.</p>
 </main>
-<script type="module">import {setupAnalytics} from './js/site.js'; setupAnalytics();</script>
+<script type="module">import {setupAnalytics} from './js/site.js'; import {setupAds} from './js/ads.js'; setupAnalytics(); setupAds();</script>
 </body>
 </html>

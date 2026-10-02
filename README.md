@@ -41,6 +41,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/storage.js` | Saving on the device, upgrading older saves, the default plan and presets, and each video's own plan |
 | `js/log.js` | The private debug log behind the Log button |
 | `js/site.js` | Visit counts (GoatCounter) and the tip link, switched on by the two settings at its top |
+| `js/ads.js` | Display ads (Google AdSense) on the home page and the guides, off until set up (see Ads below) |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
 | `js/camera.js` | Your camera (📷 Me) in a corner of the video, mirrored: starting and stopping it, and dragging it to another corner |
 | `js/recorder.js` | Recording yourself from the camera (the Record tab: one piece of the video, latest only, in memory), and keeping it in step with the video when watching back |
@@ -94,6 +95,22 @@ npx playwright test
 ```
 
 The app itself still has no dependencies: Playwright is only for testing.
+
+## Ads
+
+Ads are off until you set them up. When on, they show only on the home page (under "How it works") and after each
+guide, never on the video, practice or record screens. A space stays hidden until an ad loads, so there are no empty boxes.
+
+1. Sign up at [Google AdSense](https://adsense.google.com) and add your site. GitHub Pages works: add
+   `wjiamin.github.io` (AdSense wants the site's root, not the `/run-it-back/` part).
+2. AdSense asks for an `ads.txt` file at the root: `https://wjiamin.github.io/ads.txt`. That is a different repository,
+   named `wjiamin.github.io`: create it (public, with GitHub Pages on) and put AdSense's `ads.txt` line in it.
+3. Once the site is approved, make two display ad units in AdSense (Ads → By ad unit), one for the home page and one
+   for the guides.
+4. In AdSense, Privacy & messaging, turn on the European regulations (GDPR) message, so visitors in the EEA, UK and
+   Switzerland are asked for consent. It shows on the pages by itself.
+5. Put your publisher ID (`ca-pub-…`) and the two ad unit IDs at the top of `js/ads.js`, and change `CACHE` in `sw.js`.
+   The privacy page's Ads section appears by itself once ads are on.
 
 ## Releasing
 

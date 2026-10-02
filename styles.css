@@ -348,6 +348,9 @@ html.standalone .vcol{top:env(safe-area-inset-top)}
 .btn.tipBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 18px;
   background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;text-decoration:none}
 .tipCard{border-color:var(--accent)}
+/* ad spaces (ads.js): hidden until an ad loads, with a small label so it's clear what it is */
+.adSlot{margin-top:12px}
+.adLabel{font-size:11px;color:var(--muted);text-align:center;margin:0 0 4px;letter-spacing:.04em}
 .tipCard p{margin:0 0 10px}
 .tipBox{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 2px;padding:10px 12px;
   border:1px solid var(--accent);border-radius:12px;font-size:14px}
