@@ -10,6 +10,7 @@
      log.js      the debug log
      pwa.js      installing to the home screen and working offline
      site.js     visit counts and the tip link
+     ads.js      display ads on the home page (off until set up)
      wakelock.js keeping the screen on while a video is open
      camera.js   your camera in a corner of the video ("📷 Me")
      recorder.js recording each run from the camera, to watch back side by side
@@ -35,12 +36,13 @@ import {selfView, dragToCorners, CORNERS} from './camera.js';
 import {runRecorder, takeTimeAt, takeSync, canRecord} from './recorder.js';
 import {NO_ZOOM, clampZoom, isZoomed, zoomAround, zoomTransform, zoomGestures} from './zoom.js';
 import {setupAnalytics, setupTips, countEvent, tipsOn} from './site.js';
+import {setupAds} from './ads.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-10-01-a';
+const APP_VERSION = '2026-10-02-a';
 
 /* ---------- state ---------- */
 
@@ -1616,7 +1618,7 @@ function wireShare(){
 $('#cSegs').innerHTML = '<i class="one"></i>' + '<i></i>'.repeat(7);
 wireHome(); wirePlayerControls(); wireBeatsTab(); wireTrim(); wirePracticeTab(); wireKeyboard(); wireDebugPanel(); wireShare(); wireMe(); wireRecord(); wireZoom();
 setupInstall(log);
-setupAnalytics(log); setupTips();
+setupAnalytics(log); setupTips(); setupAds(log);
 renderSteps(); syncControls(); renderHome(); checkShareLink();
 requestAnimationFrame(tick);
 log('start', 'app ' + APP_VERSION + ', window ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x, ' + Object.keys(store.videos).length + ' saved covers');
