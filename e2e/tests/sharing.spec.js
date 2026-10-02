@@ -7,6 +7,7 @@ const toLocal = link => link.replace(/^https?:\/\/[^/]+\/(run-it-back\/)?/, '/')
 async function makeLink(page, {withPlan}){
   await withSaved(page, [cover(A, {oneT: 1, one1: 1, one2: 17, oneBeats: 32, resume: {part: 'b1', rate: 1, label: 'block 1', counts: 40}})]);
   await openCover(page, A);
+  await expect(page.locator('#heading'), 'the video\'s own title has been read').toHaveText('Test video');
   await page.click('#presetSeg [data-preset=chill]');
   await page.click('#shareBtn');
   await expect(page.locator('#sharePlanInfo')).toContainText('Chill plan, 8 counts per block');
