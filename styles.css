@@ -268,6 +268,11 @@ body.fsmode .vcol{z-index:150}
 .tap{width:100%;min-height:110px;font-size:22px;font-weight:700;border-radius:16px;border:2px solid var(--accent);background:var(--panel2);touch-action:manipulation}
 .tap:active,.tap.hit{background:var(--accent);color:var(--accent-ink)}
 .bpm{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+/* "Listen for the beat" (listen.js): the button, and what it heard or why it couldn't */
+.listenRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.listenRow #listenBtn{min-height:44px}
+#listenMsg.problem{color:var(--warn)}
+#listenBtn[aria-pressed=true]{background:var(--panel2);color:var(--text);border-color:var(--line)}
 
 /* trim window */
 .tTrack{position:relative;height:64px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}

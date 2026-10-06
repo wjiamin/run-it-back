@@ -3,7 +3,7 @@
 A small web app for learning K-pop dance covers faster from a YouTube practice video.
 
 - Plays the video mirrored, with speed control, full screen and mute
-- Set a rough tempo, then mark two 1s far apart: the app works out the exact tempo and counts 1–8 for you
+- Set a rough tempo (Listen for the beat hears it through the microphone, or tap along, or type it), then mark two 1s far apart: the app works out the exact tempo and counts 1–8 for you
 - Flash and click on every count, to check the count lines up
 - Trim the part you want to learn. It is cut into 8-count blocks automatically
 - Each block starts on a 5-6-7-8 count-in and runs through your speeds (slow, faster, full speed), with a short pause after each run
@@ -34,7 +34,7 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `styles.css` | All the styling |
 | `fan.css`, `fonts/` | The new look being tried out alongside the classic one: restyles the same page (fonts: Unbounded and Instrument Sans, SIL Open Font License) |
 | `js/app.js` | The app: state, the YouTube player, connecting the practice session to it, keeping the page up to date, and the Share panel and shared-practice card |
-| `js/beats.js` | Working out the tempo, from taps or from two marked 1s |
+| `js/beats.js` | Working out the tempo, from taps or from two marked 1s (a heard tempo, see `tempo.js`, is set like a typed one) |
 | `js/grid.js` | The beat grid: beats, counts, blocks and the trimmed range |
 | `js/plan.js` | The practice plan (blocks, connected runs, from-the-top runs, the whole section, at which speeds), count-ins, and where to continue |
 | `js/practice.js` | The practice session: runs, pauses, count-ins, Again and skipping ahead |
@@ -42,6 +42,8 @@ No build step and no dependencies: plain HTML, CSS and JavaScript modules.
 | `js/storage.js` | Saving on the device, upgrading older saves, the default plan and presets, and each video's own plan |
 | `js/log.js` | The private debug log behind the Log button |
 | `js/site.js` | Visit counts (GoatCounter) and the tip link, switched on by the two settings at its top |
+| `js/tempo.js` | Hearing the tempo in recorded sound: onsets (spectral flux) and the gap at which they repeat. Pure, tested with made-up drum tracks |
+| `js/listen.js`, `js/listen-worklet.js` | "Listen for the beat": the microphone for about 12 s while the video plays; nothing is kept or sent |
 | `js/look.js` | Chooses the classic or the new look before the page is drawn: the footer switch, or `?look=fan` / `?look=classic` in a link |
 | `js/ads.js` | Display ads (Google AdSense) on the home page and the guides, off until set up (see Ads below) |
 | `js/pwa.js` | Installing to the home screen, and registering the service worker |
