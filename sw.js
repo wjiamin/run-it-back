@@ -7,10 +7,10 @@
    Other sites (YouTube) are left alone. Other projects can live on the same web address, so only caches named
    "run-it-back-..." are ever touched. When the list of files changes, change CACHE so old copies are cleared. */
 
-const CACHE = 'run-it-back-v12';
+const CACHE = 'run-it-back-v13';
 const FILES = [
   './', 'index.html', 'privacy.html', 'styles.css', 'fan.css', 'manifest.webmanifest',
-  'js/ads.js', 'js/app.js', 'js/beats.js', 'js/camera.js', 'js/grid.js', 'js/log.js', 'js/look.js', 'js/plan.js', 'js/practice.js', 'js/pwa.js', 'js/recorder.js', 'js/share.js', 'js/site.js', 'js/storage.js', 'js/util.js', 'js/wakelock.js', 'js/zoom.js',
+  'js/ads.js', 'js/app.js', 'js/beats.js', 'js/camera.js', 'js/grid.js', 'js/listen.js', 'js/listen-worklet.js', 'js/log.js', 'js/look.js', 'js/plan.js', 'js/practice.js', 'js/pwa.js', 'js/recorder.js', 'js/share.js', 'js/site.js', 'js/storage.js', 'js/tempo.js', 'js/util.js', 'js/wakelock.js', 'js/zoom.js',
   'fonts/unbounded-latin.woff2', 'fonts/instrument-sans-latin.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];

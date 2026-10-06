@@ -228,7 +228,13 @@
         <div id="panelBeats">
           <div class="card">
             <h2>Step 1 · Rough tempo</h2>
-            <p class="muted small" style="margin:0 0 10px">Tap along to about 8 beats (the video starts at half speed, which makes it easier), or type the BPM if you know it. It only needs to be close. Step 3 makes it exact.</p>
+            <p class="muted small" style="margin:0 0 10px">Press Listen with the sound on (not in headphones) and the app works out the tempo. Or tap along to about 8 beats (the video starts at half speed, which makes it easier), or type the BPM. It only needs to be close: step 3 makes it exact.</p>
+            <div class="listenRow">
+              <button id="listenBtn" class="btn primary">Listen for the beat</button>
+              <span id="listenMsg" class="small" role="status"></span>
+            </div>
+            <div id="listenAlt" class="row small" style="margin-top:8px" hidden>Not right? Try
+              <button class="btn sm" data-listen-bpm></button> <button class="btn sm" data-listen-bpm></button> or tap along.</div>
             <div class="row between">
               <div><div class="bpm" id="bpmLbl">–</div><div class="muted small" id="bpmSub">Not set yet</div></div>
               <button id="resetTaps" class="btn sm">Reset taps</button>

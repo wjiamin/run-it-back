@@ -10,6 +10,7 @@ import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {nearestCorner, cameraProblem} from './camera.js';
 import {pickMimeType, takeTimeAt, pieceUntil, takeSync} from './recorder.js';
 import {NO_ZOOM, clampZoom, zoomAround, panBy, zoomTransform, MAX_ZOOM} from './zoom.js';
+import {estimateTempo, fft, MIN_CONFIDENCE} from './tempo.js';
 
 const results = [];
 function test(name, fn){
@@ -422,6 +423,49 @@ test('watching back: the recording is nudged back in step, and only jumps when f
   eq(takeSync(0.9).rate, 1.15, 'never much faster');
   eq(takeSync(1.5), {seek: true});
   eq(takeSync(-3), {seek: true});
+});
+
+/* ---- listening for the beat ---- */
+/** A made-up drum track: kick, snare on 2 and 4, hi-hats on every half beat, a little timing wobble and hiss. */
+function drumTrack(bpm, {seconds = 10, rate = 22050, kickEvery = 1, noise = 0.05, seed = 3} = {}){
+  let r = seed;
+  const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  const x = new Float32Array(seconds * rate), beat = 60 / bpm;
+  for (let i = 0; i < x.length; i++) x[i] = (rnd() * 2 - 1) * noise;
+  const hit = (t, amp, freq, decay) => {
+    const s0 = Math.round(t * rate);
+    for (let k = 0; k < rate * 0.12 && s0 + k < x.length; k++)
+      x[s0 + k] += amp * Math.exp(-k / (rate * decay)) * (freq ? Math.sin(2 * Math.PI * freq * k / rate) : rnd() * 2 - 1);
+  };
+  for (let b = 0, t = 0.2; t < seconds; b++, t = 0.2 + b * beat){
+    const j = () => (rnd() - 0.5) * 0.01;
+    if (b % kickEvery === 0) hit(t + j(), 1, 55, 0.04);
+    if (b % 2 === 1) hit(t + j(), 0.7, 0, 0.03);
+    hit(t + j(), 0.25, 0, 0.004); hit(t + beat / 2 + j(), 0.25, 0, 0.004);
+  }
+  return x;
+}
+test('listening: the FFT finds a pure tone in the right place', () => {
+  const n = 64, re = new Float32Array(n), im = new Float32Array(n);
+  for (let i = 0; i < n; i++) re[i] = Math.cos(2 * Math.PI * 5 * i / n);
+  fft(re, im);
+  near(Math.hypot(re[5], im[5]), n / 2, 1e-3, 'bin 5');
+  near(Math.hypot(re[6], im[6]), 0, 1e-3, 'bin 6');
+});
+test('listening: the tempo of a pop drum pattern, from slow to fast, within a BPM', () => {
+  for (const bpm of [84, 100, 118, 126, 140, 156]) for (const kickEvery of [1, 2]){
+    const heard = estimateTempo(drumTrack(bpm, {kickEvery}), 22050);
+    near(heard.bpm, bpm, 1, bpm + ' BPM, kick every ' + kickEvery);
+    if (heard.confidence < MIN_CONFIDENCE) throw new Error(bpm + ' BPM: not confident enough (' + heard.confidence.toFixed(2) + ')');
+  }
+});
+test('listening: half and double are offered, and plain noise isn\'t a beat', () => {
+  const heard = estimateTempo(drumTrack(120), 22050);
+  eq(heard.others.map(Math.round), [60, 240]);
+  let r = 9;
+  const hiss = new Float32Array(10 * 22050).map(() => ((r = (r * 16807) % 2147483647) / 2147483647) * 2 - 1);
+  const noise = estimateTempo(hiss, 22050);
+  if (noise.confidence >= MIN_CONFIDENCE) throw new Error('noise counted as a beat (' + noise.confidence.toFixed(2) + ')');
 });
 
 /* ---- zooming in ---- */

@@ -41,9 +41,10 @@ import {setupAds} from './ads.js';
 import {makeShareLink, parseShare, isShareHash} from './share.js';
 import {loadStore, saveStore, defaultPlan, presets, presetOf, pickPlan} from './storage.js';
 import {log, logEntries, clearLog, onLog} from './log.js';
+import {listenForTempo, canListen} from './listen.js';
 
 /** Shown in the debug log, so we can tell which build a device runs. Change it with every release. */
-const APP_VERSION = '2026-10-02-b';
+const APP_VERSION = '2026-10-06-a';
 
 /* ---------- state ---------- */
 
@@ -195,6 +196,7 @@ function showStageMessage(text){ const m = $('#stageMsg'); m.hidden = !text; m.t
 async function openCover(id){
   cover = store.videos[id] || (store.videos[id] = {id, title: '', period: 0, anchor: null, rangeStart: null, rangeEnd: null, updated: Date.now()});
   taps = []; lastFit = null;
+  stopListening(); syncListen();
   if (session){ session.stop(); session = null; }
   // this video's own plan; a new video starts with the plan used last
   if (cover.plan) Object.assign(settings, pickPlan(cover.plan)); else cover.plan = pickPlan(settings);
@@ -677,11 +679,11 @@ function resetTaps(){ taps = []; lastFit = null; updateBeatsUI(); }
 /** Before changing the tempo, put the grid's anchor on the range start, so the range stays put while the beats around it move. */
 function anchorOnRange(){ if (hasRange()) cover.anchor = cover.rangeStart; }
 
-/** A typed BPM. With no beat yet, the playhead counts as a beat until you mark a 1. */
-function applyBpm(value){
+/** A typed (or heard, see "listening for the beat") BPM. With no beat yet, the playhead counts as a beat until you mark a 1. */
+function applyBpm(value, how = 'typed'){
   if (!cover) return;
-  if (!(value >= 40 && value <= 300)){ log('beat', 'typed BPM rejected: ' + value); return; }
-  log('beat', 'typed BPM ' + value + (hasGrid() ? '' : ' (no beat yet, so the playhead counts as a beat)'));
+  if (!(value >= 40 && value <= 300)){ log('beat', how + ' BPM rejected: ' + value); return; }
+  log('beat', how + ' BPM ' + value + (hasGrid() ? '' : ' (no beat yet, so the playhead counts as a beat)'));
   if (hasGrid()){ anchorOnRange(); cover.period = 60 / value; }
   else { cover.period = 60 / value; cover.anchor = currentTime(); }
   forgetLaterOne(); lastFit = null; beatChanged();
@@ -784,6 +786,66 @@ function updateBeatsUI(){
     : locked ? '✓ Tempo locked from the two 1s: ' + bpm().toFixed(2) + ' BPM. The count now follows your 1. If it drifts, the gap above may be one 8-count out: try − or +.'
     : hasFirst ? '✓ The 1 is at ' + fmtTimePrecise(cover.one1) + '. Now mark a later 1 to make the tempo exact.'
     : '';
+}
+
+/* ---------- listening for the beat (see listen.js and tempo.js) ----------
+   Step 1 of the Beats tab, instead of tapping: the video plays at 1× while the phone listens through the microphone,
+   and the tempo it hears is set as if you had typed it. Tapping or typing still overrides it, and steps 2 and 3 make
+   it exact. Tempos are easily heard at half or double, so those two are offered too. */
+
+const LISTEN_S = 12;
+const LISTEN_PROBLEMS = {
+  blocked: 'The microphone is blocked. Allow it for this site in your browser settings, or tap along instead.',
+  'no mic': 'No microphone was found, or another app is using it. Tap along instead.',
+  unsupported: "This browser can't listen for the beat. Tap along instead.",
+  quiet: "Couldn't hear the music. Play it out loud (not in headphones), turn it up, and try again.",
+  unsure: "Couldn't hear a steady beat. Try again where the drums are clear, or tap along instead.",
+  stopped: '',
+};
+let listening = null;   // an AbortController while listening
+
+async function listenForBeat(){
+  if (listening) return stopListening();
+  if (!cover) return;
+  if (!playerReady || adPlaying) return syncListen(adPlaying ? 'Wait for the ad to end, then try again.' : 'The video is still loading. Try again in a moment.', [], true);
+  listening = new AbortController();
+  const rateBefore = rate, forCover = cover;
+  endSession('listening for the beat');
+  setRate(1);   // the music at its real tempo
+  if (!playing) play();
+  countEvent('listen');
+  syncListen('Listening… keep the sound on');
+  const result = await listenForTempo({seconds: LISTEN_S, signal: listening.signal, log,
+    onProgress: s => syncListen('Listening… ' + Math.ceil(LISTEN_S - s) + ' s')});
+  listening = null;
+  if (cover !== forCover) return syncListen();   // you went to another video meanwhile
+  setRate(rateBefore);
+  if (result.problem) return syncListen(LISTEN_PROBLEMS[result.problem], [], true);
+  const heard = Math.round(result.bpm * 10) / 10;
+  applyBpm(heard, 'heard');
+  syncListen('Heard about ' + heard.toFixed(1) + ' BPM. Now mark the 1 (step 2).', result.others);
+}
+function stopListening(){ if (listening) listening.abort(); }
+/** The Listen button, what it heard (or why not), and the half and double tempos to pick instead. */
+function syncListen(msg = '', others = [], problem = false){
+  $('#listenBtn').textContent = listening ? 'Stop listening' : 'Listen for the beat';
+  $('#listenBtn').setAttribute('aria-pressed', !!listening);
+  $('#listenMsg').textContent = msg; $('#listenMsg').classList.toggle('problem', problem);
+  const alts = $$('[data-listen-bpm]');
+  alts.forEach((b, i) => {
+    const bpm = others[i] && Math.round(others[i] * 10) / 10;
+    b.hidden = !bpm; b.dataset.listenBpm = bpm || ''; b.textContent = bpm ? bpm.toFixed(1) + ' BPM' : '';
+  });
+  $('#listenAlt').hidden = !others.length || !!listening;
+}
+function wireListen(){
+  if (!canListen()){ $('.listenRow').hidden = true; return; }
+  $('#listenBtn').addEventListener('click', listenForBeat);
+  for (const b of $$('[data-listen-bpm]')) b.addEventListener('click', () => {
+    const bpm = +b.dataset.listenBpm;
+    applyBpm(bpm, 'picked');
+    syncListen('Set to ' + bpm.toFixed(1) + ' BPM. Now mark the 1 (step 2).');
+  });
 }
 
 /* ---------- trim window ----------
@@ -1060,7 +1122,7 @@ function showView(view){
   $('#backBtn').hidden = view === 'home';
   document.body.classList.toggle('pm', view === 'player');
   screenOn.want(view === 'player');
-  if (view === 'home'){ closeReview(); recCountdownUntil = 0; recNote = ''; rec.clear(); me.stop(); }
+  if (view === 'home'){ stopListening(); closeReview(); recCountdownUntil = 0; recNote = ''; rec.clear(); me.stop(); }
   if (view === 'home'){
     endSession('you went back to the list');
     $('#heading').textContent = 'Run It Back'; renderHome();
@@ -1150,6 +1212,7 @@ function wireBeatsTab(){
   $('#undoTap').addEventListener('click', undoTap);
   $('#bpmSet').addEventListener('click', () => applyBpm(+$('#bpmIn').value));
   $('#bpmIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); applyBpm(+$('#bpmIn').value); } });
+  wireListen();
   $('#markOne1').addEventListener('click', markFirstOne);
   $('#markOne2').addEventListener('click', markLaterOne);
   $('#gapMinus').addEventListener('click', () => changeGap(-1));
